@@ -94,9 +94,10 @@ resume protocol.
 | S14 | Introduction | word and reference targets, citations verified |
 | S15 | Deep-read ~5 full texts | OA fetch recorded, notes substantive, every pick justified |
 | S16 | Discussion | targets met, every deep-read paper engaged |
-| S17 | Front matter | author info from the user, abstract numbers traceable |
-| S18 | Journal choice + real guidelines | ranked by acceptance probability, guidelines fetched and snapshotted |
-| S19 | Submission bundle | every item present and traced to a guideline rule, no orphan files |
+| S17 | Front matter & SCIE audit | automated title, deferred authors, complete manuscript assembled, independent subagent SCIE review |
+| S18 | Journal choice + real guidelines | SCIE venues ranked by acceptance probability, guidelines fetched and snapshotted |
+| S19 | Polish and de-AI | facts preserved, house style verified, AI boilerplate eliminated |
+| S20 | Submission bundle | real author info collected, every item present and traced to a guideline rule, no orphan files |
 
 ## Layout
 

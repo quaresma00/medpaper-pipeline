@@ -27,10 +27,7 @@ SKILL_SRC = ROOT / ".agents" / "skills" / "medpaper-pipeline"
 # Agent Skills standard (agentskills.io): a directory containing SKILL.md.
 # Paths verified against each tool's documented workspace discovery location.
 SKILL_TARGETS = {
-    "codex":       ".agents/skills/medpaper-pipeline",       # source of truth
-    "antigravity": ".agents/skills/medpaper-pipeline",       # shares .agents/ with Codex
-    "kiro":        ".kiro/skills/medpaper-pipeline",
-    "claude":      ".claude/skills/medpaper-pipeline",
+    "antigravity": ".agents/skills/medpaper-pipeline",
 }
 
 POINTER = """\
@@ -227,13 +224,8 @@ declare.
 
 # Non-skill pointer files, keyed by the tool that reads them.
 FILE_TARGETS = {
-    "codex":       [("AGENTS.md", POINTER)],
     "antigravity": [(".agents/AGENTS.md", POINTER),
                     (".agent/rules/medpaper-pipeline.md", POINTER)],
-    "kiro":        [(".kiro/steering/medpaper-pipeline.md", STEERING),
-                    (".kiro/hooks/medpaper-status.json", KIRO_HOOK),
-                    (".kiro/hooks/medpaper-skill-guard.json", KIRO_SKILL_GUARD)],
-    "claude":      [("CLAUDE.md", POINTER)],
 }
 
 

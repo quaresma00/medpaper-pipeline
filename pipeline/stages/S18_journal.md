@@ -5,25 +5,28 @@ Choose where to send it, ranked by the chance of acceptance rather than by impac
 or quartile. Then fetch the live author instructions instead of recalling them.
 
 ## Procedure
-1. Read the finished manuscript first. The shortlist must be justified by what the paper
-   actually is: design strength, sample size, novelty, geography and generalisability,
-   whether the result is positive or null, and how large the claim is.
+1. Read the finished manuscript and `project/07_manuscript/review_report.md` first. The
+   shortlist must be informed by the peer review report's recommended journal profile,
+   design strength, sample size, novelty, and geographic generalisability.
+   **Target requirement**: Must be **SCIE-indexed**. Lower-impact journals (Q3/Q4, IF 1–3)
+   are fully acceptable; the governing criterion is **high acceptance probability** and
+   rapid, reliable editorial turnaround.
 2. Search for candidate venues. Look for journals that recently published work of the same
    design and scale on adjacent questions - that is the strongest signal a paper of this
    type is in scope:
-```
-python tools/pubmed/client.py search --query "<topic> <design>" --retmax 100 --journals
+```bash
+uv run python tools/pubmed/client.py search --query "<topic> <design>" --retmax 100 --journals
 ```
    This reports the journal distribution across retrieved hits. Use it, plus the journals
    already in `library.json`, as the candidate pool.
 3. Write `project/08_submission/journal_shortlist.md` with headings
    `Ranking basis`, `Shortlist`, `Reject-fallback cascade`.
-   For each of 5-8 candidates give: journal, publisher, SCIE indexing status, scope fit in
-   one sentence, evidence that it publishes this design and scale (cite retrieved papers),
-   realistic acceptance odds with reasoning, APC, typical time to first decision, and the
+   For each of 5-8 candidates give: journal, publisher, SCIE indexing status (verified),
+   impact factor / quartile, scope fit in one sentence, evidence that it publishes this
+   design and scale (cite retrieved papers), realistic acceptance odds with reasoning
+   (prioritising high-acceptance venues), APC, typical time to first decision, and the
    main reason it might reject this paper.
-   Rank by acceptance probability x fit. State the impact factor if known but do not rank
-   by it, and flag any figure that is stale rather than presenting it as current.
+   Rank strictly by **acceptance probability x scope fit**.
    `Reject-fallback cascade`: if #1 rejects, where next, and what would have to change.
 4. Present the shortlist to the user and wait. The user chooses.
 5. Once chosen, fetch the actual author instructions from the journal's own site, snapshot

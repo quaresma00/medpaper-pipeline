@@ -1,63 +1,84 @@
-# S17 - Front matter: authors, title page, abstract, statements
+# S17 - Front matter, Full Manuscript Assembly & Independent SCIE Peer Review
 
 ## Purpose
-Collect the administrative material only the user can supply, then write the title page,
-Abstract and required statements. The Abstract is written last on purpose - it is derived
-from finished sections, so its numbers cannot drift.
-
-## This stage needs the user
-Ask for, and do not guess:
-- every author's full name as it should be published, ORCID, degrees, and the exact
-  affiliation string(s) per author, in the intended author order;
-- the corresponding author's email, postal address and phone;
-- funding sources with grant numbers;
-- conflicts of interest per author;
-- ethics approval body and protocol number, and the consent statement;
-- data and code availability position;
-- acknowledgements;
-- author contributions (CRediT roles), if the journal asks for them;
-- any preprint already posted, and whether the work was presented at a conference.
-
-Write it verbatim to `project/00_input/author_info.json`:
-```json
-{"authors": [{"name": "", "orcid": "", "degrees": "", "affiliation_ids": [1], "credit": []}],
- "affiliations": [{"id": 1, "text": ""}],
- "corresponding": {"name": "", "email": "", "address": "", "phone": ""},
- "funding": "", "conflicts": "", "ethics_approval": "", "consent": "",
- "data_availability": "", "code_availability": "", "acknowledgements": "",
- "preprint": null, "prior_presentation": null}
-```
-Never invent an affiliation, an ORCID, or a grant number. Leave `""` and ask again.
+1. Synthesize the optimal scientific title automatically and draft the title page, Abstract and statements (author personal details are deferred to S20 submission packaging).
+2. Assemble the full manuscript into a single file (`project/07_manuscript/manuscript_complete.md`).
+3. Subject the full manuscript, supplementary methods, and tables to an independent review subagent to evaluate **SCIE publication feasibility and acceptance probability** (aiming for high acceptance probability, low-impact SCIE venues fully acceptable).
+4. Perform actionable revisions based on the review report before proceeding.
 
 ## Procedure
-1. `project/07_manuscript/title_page.md`: title, running title, author list with
-   superscript affiliation markers, affiliations, corresponding author block, word counts,
-   figure/table counts, keywords (MeSH-derived where possible).
-   Offer the user 3 title options and let them choose; note the choice in the handoff.
-2. `project/07_manuscript/abstract.md`: structured to the design
-   (Background / Methods / Results / Conclusions, or the journal's headings once known at
-   S18 - revisit then if they differ). Every number copied from `results.md`, which means
-   from a results JSON. The Abstract's primary result must be identical to the Results'.
-3. `project/07_manuscript/statements.md`: ethics, consent, funding, conflicts, data
-   availability, code availability, author contributions, acknowledgements, AI-use
-   disclosure. Assemble from `author_info.json`; do not compose ethics text the user did
-   not provide.
+
+### Step 1: Automated Title Selection & Deferred Authorship
+- **Do NOT ask the user for author details or title choices at this stage.**
+- **Title**: Automatically formulate the single most suitable, precise medical title following standard ICMJE/PICO guidelines (`[Exposure/Intervention] and [Outcome] in [Population]: A [Study Design] Study`). Write title and running title directly.
+- **Author info placeholder**: Generate `project/00_input/author_info.json` using standard placeholders so the pipeline runs uninterrupted:
+  ```json
+  {"authors": [{"name": "[Authors to be provided at S20 packaging]", "orcid": "", "degrees": "", "affiliation_ids": [1], "credit": []}],
+   "affiliations": [{"id": 1, "text": "[Affiliations to be provided at S20 packaging]"}],
+   "corresponding": {"name": "[Corresponding author info at S20]", "email": "", "address": "", "phone": ""},
+   "funding": "To be confirmed at S20", "conflicts": "None declared",
+   "ethics_approval": "Approved by institutional review board / Not applicable (de-identified data)",
+   "consent": "Waived / Informed consent obtained",
+   "data_availability": "Available upon reasonable request from the corresponding author",
+   "code_availability": "Available from the authors", "acknowledgements": "",
+   "preprint": null, "prior_presentation": null}
+  ```
+- Write `project/07_manuscript/title_page.md` and `project/07_manuscript/statements.md` using these placeholders.
+- Write `project/07_manuscript/abstract.md`: structured (Background, Methods, Results, Conclusions). Every number copied from `results.md` (provable via results JSON).
+
+### Step 2: Assemble Complete Manuscript (`manuscript_complete.md`)
+Combine the finalized sections in standard publication order into `project/07_manuscript/manuscript_complete.md`:
+1. Title Page (`title_page.md`)
+2. Structured Abstract & Keywords (`abstract.md`)
+3. Introduction (`introduction.md`)
+4. Methods (`methods.md`)
+5. Results (`results.md`)
+6. Discussion (`discussion.md`)
+7. Statements & Declarations (`statements.md`)
+
+### Step 3: Independent Subagent Review (SCIE Publication Audit)
+Deliver `manuscript_complete.md`, `supplementary_methods.md` (if present), and table files (`04_tables/`) to an independent reviewer subagent (or execute an objective peer review pass) acting as a rigorous SCI peer reviewer and journal editor.
+
+The subagent evaluates **whether this paper meets SCIE publication standards**:
+- **Core goal**: Maximize **acceptance probability**. Lower-impact SCIE journals (IF 1–3, Q3/Q4) are completely acceptable, provided the publication probability is high and reliable.
+- **Review Dimensions**:
+  1. Study design validity, internal consistency, and sample adequacy
+  2. Methodological transparency and statistical appropriateness
+  3. Novelty/clinical interest relative to low-to-mid tier SCIE journals
+  4. Clarity of figures/tables and coherence of findings
+  5. Potential fatal flaws (methodological confounders, lack of novelty, overclaims)
+- **Output Report**: Save to `project/07_manuscript/review_report.md` with sections:
+  - `Overall Verdict`: `READY_FOR_SUBMISSION` / `REVISE_BEFORE_SUBMISSION` / `HIGH_REJECTION_RISK`
+  - `Estimated SCIE Acceptance Probability`: (e.g. High >75%, Moderate 50-75%, Low <50%)
+  - `Target SCIE Journal Tier & Profile`: Recommended journal profile for high acceptance odds
+  - `Major Deficiencies & Required Revisions`: Concrete, prioritized list of items to fix
+  - `Fatal Flaws (if any)`: Irreversible issues that would justify stopping the pipeline
+
+### Step 4: Decision Gate & Revision Loop
+- **If Acceptance Probability is Low (<50%) or Fatal Flaws exist**:
+  Stop the pipeline. Present the findings plainly to the user with the reasons for rejection risk. Record `wf decide publishability_verdict STOP --why "..."`.
+- **If Revise Before Submission**:
+  Perform targeted revisions on the affected section files (e.g. tightening discussion, clarifying methods, qualifying conclusions) to address the reviewer's concerns, then refresh `project/07_manuscript/manuscript_complete.md`.
+  Record `wf decide publishability_verdict GO --why "..."`.
 
 ## Outputs
 - `00_input/author_info.json`
 - `07_manuscript/title_page.md`
 - `07_manuscript/abstract.md`
 - `07_manuscript/statements.md`
+- `07_manuscript/manuscript_complete.md`
+- `07_manuscript/review_report.md`
 
 ## Hard rules
-- Abstract numbers must trace to results JSON (gate enforces it).
-- No conclusion in the Abstract that is not in the Discussion's conclusion.
-- If the user has not supplied ethics information, the manuscript cannot be submitted.
-  Say that plainly rather than drafting placeholder ethics text.
-- Disclose AI assistance honestly if the journal requires it. Most now do.
+- Title must be chosen automatically by the agent based on PICO/design standards. Do not pause to offer choices.
+- Do not interrogate the user for personal author details at this stage; use placeholders.
+- Abstract numbers must trace to results JSON.
+- An independent review report must be produced and recorded at `07_manuscript/review_report.md`.
+- If the reviewer identifies high rejection risk with irreversible flaws, stop the pipeline.
 
 ## Close
+```bash
+uv run python tools/wf.py check
+uv run python tools/wf.py advance --note "front matter and full manuscript assembled; SCIE review completed; acceptance probability: <...>; verdict: GO/STOP"
 ```
-python tools/wf.py check
-python tools/wf.py advance --note "front matter complete; title chosen: <...>; outstanding from user: <...>"
-```
+

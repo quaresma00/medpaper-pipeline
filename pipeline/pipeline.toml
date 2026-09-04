@@ -416,10 +416,16 @@ path = "07_manuscript/discussion.md"
 
 [[stage]]
 id = "S17_frontmatter"
-title = "Front matter: authors, title page, abstract, keywords, statements"
+title = "Front matter, assemble complete manuscript, and independent SCIE review"
 card = "stages/S17_frontmatter.md"
-needs_user = true
-outputs = ["00_input/author_info.json", "07_manuscript/title_page.md", "07_manuscript/abstract.md", "07_manuscript/statements.md"]
+outputs = [
+  "00_input/author_info.json",
+  "07_manuscript/title_page.md",
+  "07_manuscript/abstract.md",
+  "07_manuscript/statements.md",
+  "07_manuscript/manuscript_complete.md",
+  "07_manuscript/review_report.md"
+]
 [[stage.gate]]
 check = "outputs_exist"
 [[stage.gate]]
@@ -432,6 +438,9 @@ path = "07_manuscript/abstract.md"
 [[stage.gate]]
 check = "no_ai_boilerplate"
 path = "07_manuscript/abstract.md"
+[[stage.gate]]
+check = "decision_recorded"
+name = "publishability_verdict"
 
 [[stage]]
 id = "S18_journal"
@@ -493,6 +502,7 @@ allowed = ["YES"]
 id = "S20_package"
 title = "Assemble the submission bundle"
 card = "stages/S20_package.md"
+needs_user = true
 outputs = ["08_submission/bundle/SUBMISSION_CHECKLIST.md", "08_submission/bundle/manifest.json", "08_submission/bundle/cover_letter.md"]
 [[stage.gate]]
 check = "outputs_exist"
