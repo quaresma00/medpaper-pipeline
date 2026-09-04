@@ -159,7 +159,7 @@ python tools/wf.py advance --note "交接纪要"   # 推进：门禁全绿后记
 | **S04** | Data Acquisition: 数据获取与清洗 | 原始数据放入 `02_data/raw/`（只读不可改），数据字典 `codebook.md`，数据源溯源文档 |
 | **S05** | Exploratory Analysis: 统计分析与计算 | 执行清洗与分析代码，统计指标精确导出为 JSON，**严禁在此阶段画图** |
 | **S06** | Final Protocol: 最终研究方案与 Go/No-Go #2 | 记录对比 v1 的修改原因，形成最终执行标准 |
-| **S07** | Artifacts: 图表清单规划与图注草拟 | 对标顶刊版面规划图表，每张图表必须有独立图注草案 |
+| **S07** | Artifacts: 图表清单规划与图注精炼 | 对标顶刊规划图表；图注严格执行四要素规范（80-150字，严禁堆砌方法学信度与小论文） |
 | **S08** | Methods: 方法学章节撰写 | 正文遵循通用四步骨架并强制以 Statistical Analysis 收尾；详尽敏感性分析与技术细节分流至可选的 supplementary_methods.md |
 | **S09** | Results: 结果章节撰写 | 每一个统计数值均可在 JSON 中追溯来源，严格对应规划的图表 |
 | **S10** | Tables: 三线表制作与生成 | 纯正标准三线表（.xlsx），单元格数值 100% 数据代码溯源 |
@@ -172,7 +172,7 @@ python tools/wf.py advance --note "交接纪要"   # 推进：门禁全绿后记
 | **S17** | Front Matter & Audit: 标题、摘要、全文拼装与独立SCIE预审 | 标题依据 PICO 自动精选；作者信息暂留占位；自动组装全文.md；交付独立子 Agent 进行 SCIE 接受率审核并闭环修正，发文概率极低则触发熔断 |
 | **S18** | Journal Selection: 目标期刊选择与指南抓取 | 基于预审报告推荐，锁定高接受概率 SCIE 期刊（低分亦可）；真实抓取并快照作者投稿须知（Author Guidelines） |
 | **S19** | Language Polish: 事实保护性语言润色 | 执行快照 Diff 比对，**严禁润色篡改任何数值、引文或图表编号**，去除 AI 味 |
-| **S20** | Submission Package: 完整投稿包封装 | 正式收集真实作者、单位、基金与通讯信息；生成对照期刊指南清单的完整投稿包，零冗余孤儿文件 |
+| **S20** | Submission Package: 完整投稿包封装 | 收集真实作者与基金信息；依据期刊指南动态适配字号行距；全篇纯黑 Times New Roman；正文文末自动集成图注；投稿信与正文全套 Word 化交付 |
 
 ---
 

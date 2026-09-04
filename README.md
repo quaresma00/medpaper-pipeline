@@ -84,7 +84,7 @@ resume protocol.
 | S04 | Acquire data, codebook, provenance | raw files present, dataset_summary.json, temp clean |
 | S05 | Method scan + exploratory analysis | >= 5 searches, >= 2 result files, **no plotting code**, notes substantive |
 | S06 | Final protocol + go/no-go #2 | deviations documented, convergence and verdict recorded |
-| S07 | Artifact inventory + legends | benchmarked against comparable papers, plan structurally sane, every item has a legend |
+| S07 | Artifact inventory + legends | benchmarked, 4-element concise figure legends (no methods bloat) |
 | S08 | Methods | four-step causal skeleton, Statistical Analysis closes main text, technical detail to optional supplementary_methods.md |
 | S09 | Results | numbers traceable, every planned artifact cited and nothing else |
 | S10 | Tables | three-line format verified, every cell traceable |
@@ -97,7 +97,7 @@ resume protocol.
 | S17 | Front matter & SCIE audit | automated title, deferred authors, complete manuscript assembled, independent subagent SCIE review |
 | S18 | Journal choice + real guidelines | SCIE venues ranked by acceptance probability, guidelines fetched and snapshotted |
 | S19 | Polish and de-AI | facts preserved, house style verified, AI boilerplate eliminated |
-| S20 | Submission bundle | real author info collected, every item present and traced to a guideline rule, no orphan files |
+| S20 | Submission bundle | dynamic typography (pure black Times New Roman), legends at manuscript end, full Word package |
 
 ## Layout
 

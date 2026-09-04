@@ -25,6 +25,9 @@
   ```
 - Write `project/07_manuscript/title_page.md` and `project/07_manuscript/statements.md` using these placeholders.
 - Write `project/07_manuscript/abstract.md`: structured (Background, Methods, Results, Conclusions). Every number copied from `results.md` (provable via results JSON).
+- **Keywords Rule**: Keywords must be placed **at the very end of `abstract.md`** (never before Abstract or on a standalone page).
+  - Select exactly 3–5 clean, canonical medical terms (e.g. `Keywords: Stents, Biliary strictures, Adverse events, Postmarket surveillance.`).
+  - **Strict syntax cleaning**: Never copy raw MeSH qualifiers or codes with slashes (`/`), ampersands (`&`), or semicolons (`;`). Slashes like `Biliary Tract / surgery` are prohibited; clean to `Biliary tract surgery` or `Biliary tract`. Separate keywords solely with commas.
 
 ### Step 2: Assemble Complete Manuscript (`manuscript_complete.md`)
 Combine the finalized sections in standard publication order into `project/07_manuscript/manuscript_complete.md`:

@@ -59,10 +59,16 @@ python tools/pubmed/client.py fetch --ids <...> --with-abstract
    requirements. `other` is available but demands an `archetype_rationale`, and it turns off
    the domain checks, so prefer a real archetype.
 4. **Legends.** Write `project/05_figures/legends.md`, one block per figure, each headed
-   `Figure N.` / `Figure S1.` A legend must let the figure be read without the main text:
-   what is plotted, what each axis/colour/symbol means, n, the test used, what the error
-   bars are, what the significance markers mean, and any abbreviations.
-   Everything that explains the figure goes HERE, not into the panel.
+   `Figure N.` / `Figure S1.` A medical figure legend is an optical navigation guide,
+   NOT a second Methods or Results section. Keep each legend strictly bounded (typically 80–150 words)
+   and enforce the **four-element standard**:
+   - **Concise Title**: A single declarative or descriptive sentence summarizing the primary message.
+   - **Panel Guides**: (A), (B)... naming the specific cohort, variables, axes, and stratifications plotted.
+   - **Visual & Statistical Annotations**: What points/bars represent (e.g. odds ratios, Wilson 95% CI),
+     the statistical test, and significance thresholds (e.g. *P < 0.05, **P < 0.01).
+   - **Alphabetical Abbreviations**: Expanded acronyms at the end (e.g. `Abbreviations: CI, confidence interval; OR, odds ratio.`).
+   *Anti-bloat rule*: Do NOT repeat screening mechanics, inter-rater reliability calculations (e.g. Cohen's kappa),
+   or lengthy subgroup epidemiology in the legend. Those belong in Methods and Results.
 5. **Table captions.** Write `project/04_tables/table_captions.md`, one block per table,
    headed `Table N.` Each needs a title line plus the footnote content: abbreviation
    expansions, units, the test used, what a dagger/asterisk marks. At least one block
@@ -77,11 +83,12 @@ python tools/pubmed/client.py fetch --ids <...> --with-abstract
 ## Hard rules
 - Do not draw anything yet. No xlsx, no png.
 - Do not plan a display item you have no result JSON for.
-- Anything that is method detail, cohort provenance, or a caveat belongs in the legend
-  or in Methods - never as text inside a panel.
+- Do not bloat legends with Methods text (kappa scores, consensus rules, full narrative flow).
+  Follow the 4-element standard strictly.
+- Visual elements go into the panel; statistical and optical explanations go into the legend.
 
 ## Close
-```
-python tools/wf.py check
-python tools/wf.py advance --note "inventory: <F main / T main / F supp / T supp> vs benchmark <range>; legends written"
+```bash
+uv run python tools/wf.py check
+uv run python tools/wf.py advance --note "inventory: <F main / T main / F supp / T supp> vs benchmark <range>; legends written"
 ```
