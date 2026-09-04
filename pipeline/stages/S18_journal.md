@@ -1,8 +1,16 @@
 # S18 - Journal selection by acceptance probability, then the real guidelines
 
 ## Purpose
-Choose where to send it, ranked by the chance of acceptance rather than by impact factor
-or quartile. Then fetch the live author instructions instead of recalling them.
+Select the target SCIE journal based on the peer review report from S17. The primary
+objective is **maximizing acceptance probability** (lower-impact SCIE venues like Q3/Q4
+with IF 1–3 are fully acceptable). **The AI recommends candidates; the user makes the final choice.**
+Then fetch the live author instructions instead of recalling them.
+
+## This stage needs the user
+**The AI is strictly prohibited from choosing the target journal autonomously.**
+The AI must present a structured shortlist of 3–5 high-acceptance SCIE candidate journals to
+the user in the chat interface, and pause until the user explicitly selects one (or provides
+an alternative target).
 
 ## Procedure
 1. Read the finished manuscript and `project/07_manuscript/review_report.md` first. The
@@ -21,19 +29,23 @@ uv run python tools/pubmed/client.py search --query "<topic> <design>" --retmax 
    already in `library.json`, as the candidate pool.
 3. Write `project/08_submission/journal_shortlist.md` with headings
    `Ranking basis`, `Shortlist`, `Reject-fallback cascade`.
-   For each of 5-8 candidates give: journal, publisher, SCIE indexing status (verified),
-   impact factor / quartile, scope fit in one sentence, evidence that it publishes this
-   design and scale (cite retrieved papers), realistic acceptance odds with reasoning
-   (prioritising high-acceptance venues), APC, typical time to first decision, and the
-   main reason it might reject this paper.
+   Provide 3 to 5 candidate SCIE journals. For each candidate give:
+   - Journal title, publisher, verified SCIE indexing status;
+   - Impact factor, JCR quartile;
+   - Scope fit in one sentence, evidence of publishing similar designs (cite retrieved papers);
+   - Realistic acceptance odds with specific rationale (prioritising high-acceptance venues);
+   - APC (open access cost) and average time to first decision;
+   - Main potential rejection risk.
    Rank strictly by **acceptance probability x scope fit**.
    `Reject-fallback cascade`: if #1 rejects, where next, and what would have to change.
-4. Present the shortlist to the user and wait. The user chooses.
-5. Once chosen, fetch the actual author instructions from the journal's own site, snapshot
-   the raw page under `project/08_submission/cache/`, and write
+4. **Present the candidate shortlist to the user in the chat conversation and wait.**
+   Do NOT choose a journal autonomously. Do NOT advance this stage without user selection.
+   Wait for the user to confirm their selection.
+5. Once the user makes the choice, fetch the actual author instructions from the journal's
+   official website, snapshot the raw page under `project/08_submission/cache/`, and write
    `project/08_submission/target_journal.json`:
 ```json
-{"journal": "", "issn": "", "publisher": "", "scie_indexed": true,
+{"journal": "<Chosen Journal>", "issn": "", "publisher": "", "scie_indexed": true,
  "guidelines_url": "", "guidelines_fetched_at": "", "chosen_by_user": true}
 ```
 6. Write `project/08_submission/guidelines_extract.md`. It must quote the exact
@@ -55,18 +67,18 @@ uv run python tools/pubmed/client.py search --query "<topic> <design>" --retmax 
 ## Hard rules
 - Never state a journal's word limit, reference style, APC or turnaround time from memory.
   Fetch it, snapshot it, quote it.
-- Do not rank by quartile. A Q1 journal that rejects this design in a week is worse than a
-  Q3 journal that publishes it.
+- Do not rank by impact factor or quartile. A high-acceptance Q3/Q4 journal is prioritized
+  over an over-ambitious Q1 journal with high rejection rates.
 - Verify SCIE indexing rather than assuming; flag predatory or questionable venues.
-- The user chooses the journal. Do not advance before they have.
+- **The user MUST choose the journal.** The agent must never select the journal itself.
 
 ## Close
 Mechanical deltas (word counts, spelling variant, abstract headings, reference caps) are
 fixed in the next stage, S19, which is a single polish pass already aimed at this journal.
 Record what needs fixing rather than fixing it here.
 
-```
-python tools/wf.py decide journal_chosen "<journal name>" --why "<the user's choice and the acceptance-odds reasoning behind the ranking>"
-python tools/wf.py check
-python tools/wf.py advance --note "target: <journal>; guidelines fetched <date>; deltas for S19 to fix: <...>"
+```bash
+uv run python tools/wf.py decide journal_chosen "<journal name>" --why "<the user's choice and the acceptance-odds reasoning behind the ranking>"
+uv run python tools/wf.py check
+uv run python tools/wf.py advance --note "target: <journal>; guidelines fetched <date>; chosen by user; deltas for S19 to fix: <...>"
 ```

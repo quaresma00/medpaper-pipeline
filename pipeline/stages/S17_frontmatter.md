@@ -49,15 +49,16 @@ The subagent evaluates **whether this paper meets SCIE publication standards**:
   5. Potential fatal flaws (methodological confounders, lack of novelty, overclaims)
 - **Output Report**: Save to `project/07_manuscript/review_report.md` with sections:
   - `Overall Verdict`: `READY_FOR_SUBMISSION` / `REVISE_BEFORE_SUBMISSION` / `HIGH_REJECTION_RISK`
-  - `Estimated SCIE Acceptance Probability`: (e.g. High >75%, Moderate 50-75%, Low <50%)
+  - `Estimated SCIE Acceptance Probability`: (e.g. High >40%, Moderate 20-40%, Marginal 10-20%, Low <10%)
+    *(Note: in typical medical publishing, base SCIE acceptance rates sit around 15–25%. A paper with >=10% acceptance odds in a well-chosen low-tier SCIE journal is worth pursuing via targeted revisions).*
   - `Target SCIE Journal Tier & Profile`: Recommended journal profile for high acceptance odds
   - `Major Deficiencies & Required Revisions`: Concrete, prioritized list of items to fix
   - `Fatal Flaws (if any)`: Irreversible issues that would justify stopping the pipeline
 
 ### Step 4: Decision Gate & Revision Loop
-- **If Acceptance Probability is Low (<50%) or Fatal Flaws exist**:
-  Stop the pipeline. Present the findings plainly to the user with the reasons for rejection risk. Record `wf decide publishability_verdict STOP --why "..."`.
-- **If Revise Before Submission**:
+- **If Acceptance Probability is critically low (<10%) or Fatal Flaws exist**:
+  Stop the pipeline. Irreversible flaws (e.g., severe unmitigated confounding, fatal design bias, complete lack of novelty, falsification risks) mean the paper has virtually zero chance of SCIE publication. Present the findings plainly to the user with the exact reasons. Record `wf decide publishability_verdict STOP --why "..."` and do not advance.
+- **If Acceptance Probability is >= 10% (even if revisions required)**:
   Perform targeted revisions on the affected section files (e.g. tightening discussion, clarifying methods, qualifying conclusions) to address the reviewer's concerns, then refresh `project/07_manuscript/manuscript_complete.md`.
   Record `wf decide publishability_verdict GO --why "..."`.
 
