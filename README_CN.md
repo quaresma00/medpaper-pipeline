@@ -160,7 +160,7 @@ python tools/wf.py advance --note "交接纪要"   # 推进：门禁全绿后记
 | **S05** | Exploratory Analysis: 统计分析与计算 | 执行清洗与分析代码，统计指标精确导出为 JSON，**严禁在此阶段画图** |
 | **S06** | Final Protocol: 最终研究方案与 Go/No-Go #2 | 记录对比 v1 的修改原因，形成最终执行标准 |
 | **S07** | Artifacts: 图表清单规划与图注草拟 | 对标顶刊版面规划图表，每张图表必须有独立图注草案 |
-| **S08** | Methods: 方法学章节撰写 | 仅写 Methods 单节，引文真实，统计方法与代码完全对应 |
+| **S08** | Methods: 方法学章节撰写 | 正文遵循通用四步骨架并强制以 Statistical Analysis 收尾；详尽敏感性分析与技术细节分流至可选的 supplementary_methods.md |
 | **S09** | Results: 结果章节撰写 | 每一个统计数值均可在 JSON 中追溯来源，严格对应规划的图表 |
 | **S10** | Tables: 三线表制作与生成 | 纯正标准三线表（.xlsx），单元格数值 100% 数据代码溯源 |
 | **S11** | Figures: 顶级医学期刊图表生成与质检 | 确定性 QC 代码检测，人工/视觉审阅留痕，严禁图面文字堆砌（移入图注） |

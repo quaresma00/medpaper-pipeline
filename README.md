@@ -85,7 +85,7 @@ resume protocol.
 | S05 | Method scan + exploratory analysis | >= 5 searches, >= 2 result files, **no plotting code**, notes substantive |
 | S06 | Final protocol + go/no-go #2 | deviations documented, convergence and verdict recorded |
 | S07 | Artifact inventory + legends | benchmarked against comparable papers, plan structurally sane, every item has a legend |
-| S08 | Methods | one section, citations resolve, numbers traceable |
+| S08 | Methods | four-step causal skeleton, Statistical Analysis closes main text, technical detail to optional supplementary_methods.md |
 | S09 | Results | numbers traceable, every planned artifact cited and nothing else |
 | S10 | Tables | three-line format verified, every cell traceable |
 | S11 | Figures | deterministic QC green, visual review recorded, panel text moved to legends |

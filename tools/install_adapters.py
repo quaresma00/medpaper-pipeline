@@ -229,8 +229,7 @@ declare.
 FILE_TARGETS = {
     "codex":       [("AGENTS.md", POINTER)],
     "antigravity": [(".agents/AGENTS.md", POINTER),
-                    (".agent/rules/medpaper-pipeline.md", POINTER),
-                    (".agent/workflows/medpaper-resume.md", WORKFLOW)],
+                    (".agent/rules/medpaper-pipeline.md", POINTER)],
     "kiro":        [(".kiro/steering/medpaper-pipeline.md", STEERING),
                     (".kiro/hooks/medpaper-status.json", KIRO_HOOK),
                     (".kiro/hooks/medpaper-skill-guard.json", KIRO_SKILL_GUARD)],

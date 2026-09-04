@@ -243,9 +243,10 @@ check = "legends_cover_plan"
 id = "S08_methods"
 title = "Write Methods"
 card = "stages/S08_methods.md"
-outputs = ["07_manuscript/methods.md"]
+outputs = ["07_manuscript/methods.md", "07_manuscript/supplementary_methods.md"]
 [[stage.gate]]
 check = "outputs_exist"
+optional = ["07_manuscript/supplementary_methods.md"]
 [[stage.gate]]
 check = "single_section_written"
 [[stage.gate]]

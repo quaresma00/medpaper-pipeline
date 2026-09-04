@@ -28,15 +28,18 @@ pandoc project/07_manuscript/title_page.md project/07_manuscript/abstract.md \
    and colour mode (TIFF masters from `05_figures/out/`), tables as the journal wants them
    (many want editable tables in the manuscript file, not xlsx - convert if so, and keep
    the xlsx as the source), supplementary material as a single file if required.
-4. Write `project/08_submission/bundle/cover_letter.md`: what the study asked, what it
+4. If `07_manuscript/supplementary_methods.md` exists, include it as part of the
+   supplementary material file. Many journals want a single combined supplementary PDF;
+   if so, prepend it before supplementary tables and figures.
+5. Write `project/08_submission/bundle/cover_letter.md`: what the study asked, what it
    found, why it fits this journal specifically, the statements the journal wants in the
    letter (originality, no concurrent submission, all authors approved), suggested
    reviewers if requested, and the corresponding author block.
-5. Write `project/08_submission/bundle/SUBMISSION_CHECKLIST.md`: every guideline
+6. Write `project/08_submission/bundle/SUBMISSION_CHECKLIST.md`: every guideline
    requirement as a line item with its status and the file that satisfies it. Anything the
    user must do in the submission portal (ORCID login, funder selection, reviewer
    suggestions, licence choice) goes in a `For the user to complete in the portal` section.
-6. Write `project/08_submission/bundle/manifest.json`. Every file in the bundle must be
+7. Write `project/08_submission/bundle/manifest.json`. Every file in the bundle must be
    listed, with the guideline rule that requires it:
 ```json
 {"built_at": "", "journal": "",
@@ -46,7 +49,7 @@ pandoc project/07_manuscript/title_page.md project/07_manuscript/abstract.md \
    Roles the gate requires: `title_page`, `manuscript`, `cover_letter`, `figures`,
    `tables`, `checklist`. Add `supplementary`, `checklist_form` (e.g. STROBE), `coi_forms`
    as the journal demands.
-7. Final tidy: `python tools/wf.py clean --apply`, then resolve anything the orphan scan
+8. Final tidy: `python tools/wf.py clean --apply`, then resolve anything the orphan scan
    reports. The `no_orphans` gate runs here.
 
 ## Outputs
