@@ -63,16 +63,33 @@ and refresh `project/07_manuscript/title_page.md` and `project/07_manuscript/sta
      ```
    - This records SHA-256 hashes for all bundle files into `project/08_submission/package_review_freeze.json`, preventing any unintended tampering.
 
-9. **Independent Submission Auditor Subagent (Full Compliance & Consistency Audit)**:
-   - The agent invokes an independent subagent (Role: `Submission Package Auditor`).
-   - The Auditor subagent verifies the freeze: `uv run python tools/package_review.py verify --project project`.
-   - The Auditor subagent runs `uv run python tools/audit/audit_submission.py --project project` to verify:
-     1. **Physical DOCX integrity**: Unpacks and inspects OpenXML, detecting any file corruption, empty paragraphs, or residual soft breaks/outlines.
-     2. **Journal Guidelines Compliance**: Word limits, structured abstract, display item caps, reference count limits, typography, and mandatory declaration statements.
-     3. **Omissions & Completeness**: Cover Letter mandatory clauses, corresponding author details, reporting checklists, supplementary methodology.
-     4. **Cross-Consistency & Alignment**: Figure/Table citations vs real files, Abstract/Results effect sizes vs Tables/Figures, Title Page vs Cover Letter metadata.
-   - Save the comprehensive audit verdict to `project/08_submission/bundle/AUDIT_REPORT.md` and record in `manifest.json`.
-   - Re-verify freeze to ensure read-only auditing compliance.
+9. **Triple-Perspective Final Review by Independent Subagent (Single Pass, Zero Context Bloat)**:
+   - To avoid redundant freezes, repeated reviews, and excessive token/context overhead, all pre-submission checks are unified into a single-pass **Triple-Perspective Final Review**:
+     - **Role**: `Triple-Perspective Submission Reviewer` (Independent Reader + Journal Editor + Compliance Auditor).
+     - **Execution**: The agent invokes this independent subagent using:
+       ```bash
+       uv run python tools/package_review.py prompt --project project
+       ```
+   - **Perspective 1: Independent Academic Reader (易读性与自明性审查)**:
+     - Narrative flow & clarity: Can a biomedical researcher outside the narrow subfield follow the motivation, logic, and conclusions without confusion?
+     - Are there conceptual leaps, unexplained jargon, or disjointed transitions?
+     - **Self-explanatory Figures & Tables**: Can figures and tables be understood purely with their legends without referring back to Results prose? Are axes, markers, and groupings clear? Are abbreviations accessible in `statements.md`?
+   - **Perspective 2: Journal Editor & Senior Peer Reviewer (学术质量与低级错误排查)**:
+     - **Zero Tolerance for Low-level Defects (低级错误零容忍)**:
+       * **Numerical cross-consistency**: Cross-check every number (sample sizes $N$, event rates, $p$-values, HR/OR/95% CIs) across Title Page, Abstract, Results, Tables, and Figure Legends. Strictly eliminate contradictions.
+       * **Display item cross-referencing**: Verify that in-text citations like "Figure 1", "Table 2" strictly match the actual numbering, titles, and content of files in `bundle/` without mislabeling or off-by-one errors.
+       * **Language hygiene**: Catch typos, double spaces, punctuation glitches, and non-standard biomedical units.
+     - **Scientific Innovation & Scope Fit**: Do Title, Abstract, and Introduction sharply highlight the clinical/biological novelty and fit the target journal's Aims & Scope?
+     - **Cover Letter Persuasion**: Does the letter effectively pitch the paper's importance to the Editor-in-Chief, with all mandatory declarations and complete corresponding author contact details?
+   - **Perspective 3: Submission Compliance & Technical Integrity (投稿合规与格式硬审)**:
+     - The subagent runs `uv run python tools/audit/audit_submission.py --project project`:
+       * Physical DOCX integrity: Unpacks OpenXML, validates XML syntax, ensures non-empty paragraphs (> 0), confirms zero residual soft breaks (down-arrows ↓) and zero outline levels (`outlineLvl: 0`).
+       * Target journal guidelines: Word count limits, reference caps, display item count limits, TIFF resolution (>= 300 DPI) and color spaces.
+       * Mandatory declaration completeness: Ethics approval, informed consent, data availability, conflict of interest, author contributions.
+   - **Output Report**:
+     - The subagent writes the structured review to `project/08_submission/bundle/AUDIT_REPORT.md` (covering Executive Verdict, Perspective A Reader feedback, Perspective B Editor findings, Perspective C Compliance audit, and Prioritized Action Checklist).
+   - **Verify Package Integrity**:
+     - Subagent runs `uv run python tools/package_review.py verify --project project` to verify the bundle remained untouched throughout review.
 
 10. Final tidy: `uv run python tools/wf.py clean --apply`, then resolve anything the orphan scan
     reports. The `no_orphans` gate runs here.
@@ -91,8 +108,8 @@ and refresh `project/07_manuscript/title_page.md` and `project/07_manuscript/sta
 - Citations must resolve. If `pandoc --citeproc` emits an unresolved-key warning, the
   bundle is not done.
 - **Never bypass human review**: the agent must pause and obtain explicit user confirmation before freezing and auditing.
-- **Package Freeze required**: `package_review_freeze.json` must be written before independent audit and verified uncorrupted.
-- **Independent Auditor Report required**: `08_submission/bundle/AUDIT_REPORT.md` must be generated by the auditor subagent and achieve a `PASSED` verdict before advancing.
+- **Package Freeze required**: `package_review_freeze.json` must be written before review and verified uncorrupted after review.
+- **Triple-Perspective Review required**: `08_submission/bundle/AUDIT_REPORT.md` must encompass all three perspectives (Reader clarity, Editor low-level flaw check, and Compliance audit) with a `PASSED` or `READY_FOR_SUBMISSION` verdict before advancing.
 - Do not fabricate a reviewer's affiliation or email when suggesting reviewers. Provide
   names and let the user supply contact details, or leave it for the portal.
 

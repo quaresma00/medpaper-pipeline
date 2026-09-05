@@ -90,7 +90,7 @@ These are also printed by `wf status`, and several are mechanically enforced.
    (`python tools/text/polish.py snapshot`); the gate diffs against it.
 8. **A red gate means stop and fix, not `--force`.** `--force` exists for a deliberate,
    recorded override; it writes the violation into the handoff log.
-9. **Submission package requires explicit human confirmation, SHA-256 package freeze, and independent auditor subagent review.** At S20, compile package -> create manifest -> deliver Word bundle for human inspection -> pause for user confirmation -> freeze package with SHA-256 signatures (`tools/wfcore/packagefreeze.py`) -> invoke independent auditor subagent (`tools/package_review.py` + `tools/audit/audit_submission.py` v2 real physical DOCX audit) to verify journal compliance, omission-free completeness, and cross-consistency (`AUDIT_REPORT.md`) before close.
+9. **Submission package requires explicit human confirmation, SHA-256 package freeze, and independent Triple-Perspective final review.** At S20, compile package -> create manifest -> deliver Word bundle for human inspection -> pause for user confirmation -> freeze package with SHA-256 signatures (`tools/package_review.py freeze`) -> invoke independent auditor subagent to execute a unified single-pass **Triple-Perspective Final Review** (Independent Academic Reader for readability & self-explanatory figures; Journal Editor & Reviewer for zero low-level numerical/citation defects & innovation fit; Compliance Auditor for real physical DOCX integrity & guideline checks -> `AUDIT_REPORT.md`) -> verify package freeze -> close.
 
 ## Do not let another skill replace a stage
 
