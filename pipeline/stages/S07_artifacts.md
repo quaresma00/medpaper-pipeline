@@ -60,17 +60,18 @@ python tools/pubmed/client.py fetch --ids <...> --with-abstract
    the domain checks, so prefer a real archetype.
 4. **Legends.** Write `project/05_figures/legends.md`, one block per figure, each headed
    `Figure N.` / `Figure S1.` A medical figure legend is strictly an **optical navigation guide** so the reader can understand the visual elements of the chart, NOT a second Results or Methods section.
-   Keep each legend strictly bounded (typically **40–80 words**, 2–3 sentences max) and enforce the **three-element visual standard**:
+   Keep each legend bounded (typically **40–120 words**; maximum 180 words for complex multi-panel figures) and enforce the **three-element visual standard**:
    - **Concise Title**: A single bold sentence summarizing what the chart displays.
    - **Panel Guides**: (A), (B)... explaining what is plotted on the axes and what the curves, bars, or markers represent.
-   - **Visual & Statistical Markers**: Definition of error bars (e.g. 95% CI) and threshold markers.
-      **Strict Prohibitions**:
-    - **NO Results Duplication**: The legend's only role is to help the reader understand the visual chart elements. Absolutely NEVER repeat empirical outcome numbers, percentages, mean/SD, IQR, odds ratios, hazard ratios, or P-values in the legend (e.g. do NOT write "wire fracture decreased from 37.5% to 20.1% (OR=0.418, p=0.0005)"). All findings belong exclusively in Results and the chart itself.
-    - **NO Methods Duplication**: NEVER describe screening steps, blinded adjudication protocols, or reliability scores in the legend. Those belong exclusively in Methods.
-    - **NO Abbreviations in Legends**: Full abbreviations are placed centrally in the **Declarations and Statements** section. Do NOT duplicate an Abbreviations list inside individual figure legends.
+   - **Visual & Statistical Markers**: Definition of sample sizes ($N$), error bars (e.g. $\pm\text{SD}$, 95% CI), significance thresholds (e.g. $*p<0.05$), and reference null lines (e.g. OR=1.0).
+   
+   **Strict Prohibitions**:
+   - **NO Results Conclusion Duplication**: The legend's role is strictly visual interpretation. Never repeat narrative outcome claims, effect size findings, or comparative judgments (e.g. do NOT write "Outcome was lower (OR 0.40, P=0.01)"). Comparative findings belong in Results.
+   - **NO Methods Duplication**: NEVER describe trial screening mechanisms, adjudication committees, or Kappa reliability calculations in the legend. Those belong in Methods.
+   - **NO Repetitive Abbreviations in Legends**: Master abbreviations are centralized in **Declarations and Statements**. Do NOT duplicate full abbreviation dictionaries inside individual figure legends.
 5. **Table captions & footnotes.** Write `project/04_tables/table_captions.md`, one block per table,
    headed `Table N.` Each needs a title line plus the footnote content: units, data representation (e.g. "Data are n (%) unless stated otherwise"), the statistical tests used, and what asterisks/daggers mark.
-   - **Centralized Abbreviations for Tables**: If a table contains multiple abbreviations, do NOT bloat the table footnotes by repeating an exhaustive dictionary. All abbreviations across the manuscript, figures, and tables are centralized in **Declarations and Statements** (`statements.md`). Footnotes only state: "Abbreviations are listed in the Statements section" or define at most 1–2 highly table-specific ad-hoc symbols.
+   - **Centralized Abbreviations for Tables**: When a table contains multiple standard abbreviations, centralize them in **Declarations and Statements** (`statements.md`). Footnotes only state: "Abbreviations are defined in the manuscript Statements section" or define at most 1–2 table-specific symbols.
 
 ## Outputs
 - `01_protocol/artifact_benchmark.md`
@@ -81,9 +82,8 @@ python tools/pubmed/client.py fetch --ids <...> --with-abstract
 ## Hard rules
 - Do not draw anything yet. No xlsx, no png.
 - Do not plan a display item you have no result JSON for.
-- **Legends must NOT report data findings**: zero percentages, zero odds ratios, zero P-values in legends.md. Pure visual guide only.
+- **Legends must NOT report narrative results findings**: no comparative effect sizes or claims. Optical visual guide only (40–120 words, max 180).
 - **Abbreviations are centralized in Declarations and Statements**: do NOT clutter figure legends or table footnotes with long repetitive abbreviation lists.
-- Keep legends minimal (40–80 words): readers only need to understand what is visually plotted.
 
 ## Close
 ```bash

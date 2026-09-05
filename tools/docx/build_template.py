@@ -145,6 +145,12 @@ def modify_styles_xml(
                     color = ET.SubElement(rpr, qn("color"))
                 clean_color_to_black(color)
 
+    # Completely remove all outlineLvl and numPr from all styles
+    for ppr in root.findall(".//w:pPr", NS):
+        for tag in ("outlineLvl", "numPr"):
+            for node in ppr.findall(f"w:{tag}", NS):
+                ppr.remove(node)
+
     return ET.tostring(root, encoding="utf-8")
 
 

@@ -11,15 +11,16 @@
 ### Step 1: Automated Title Selection & Deferred Authorship
 - **Do NOT ask the user for author details or title choices at this stage.**
 - **Title**: Automatically formulate the single most suitable, precise medical title following standard ICMJE/PICO guidelines (`[Exposure/Intervention] and [Outcome] in [Population]: A [Study Design] Study`). Write title and running title directly.
-- **Author info placeholder**: Generate `project/00_input/author_info.json` using standard placeholders so the pipeline runs uninterrupted:
+- **Author info placeholder**: Generate `project/00_input/author_info.json` using explicit pending placeholders (never fabricate approval or absence of conflict):
   ```json
   {"authors": [{"name": "[Authors to be provided at S20 packaging]", "orcid": "", "degrees": "", "affiliation_ids": [1], "credit": []}],
    "affiliations": [{"id": 1, "text": "[Affiliations to be provided at S20 packaging]"}],
    "corresponding": {"name": "[Corresponding author info at S20]", "email": "", "address": "", "phone": ""},
-   "funding": "To be confirmed at S20", "conflicts": "None declared",
-   "ethics_approval": "Approved by institutional review board / Not applicable (de-identified data)",
-   "consent": "Waived / Informed consent obtained",
-   "data_availability": "Available upon reasonable request from the corresponding author",
+   "funding": "[REQUIRED_AT_S20: user must provide grant numbers or state no funding]",
+   "conflicts": "[REQUIRED_AT_S20: user must declare conflicts of interest]",
+   "ethics_approval": "[REQUIRED_AT_S20: user must provide IRB approval number or exempt statement]",
+   "consent": "[REQUIRED_AT_S20: user must provide patient consent details or waiver basis]",
+   "data_availability": "[REQUIRED_AT_S20: user must provide repository accession or access conditions]",
    "code_availability": "Available from the authors", "acknowledgements": "",
    "preprint": null, "prior_presentation": null}
   ```
@@ -83,7 +84,8 @@ The subagent evaluates **whether this paper meets SCIE publication standards**:
 
 ## Hard rules
 - Title must be chosen automatically by the agent based on PICO/design standards. Do not pause to offer choices.
-- Do not interrogate the user for personal author details at this stage; use placeholders.
+- Do not interrogate the user for personal author details at this stage; use explicit pending placeholders.
+- **Never fabricate ethical or compliance statements**: Never state IRB approval or absence of conflict as fact before user provides them at S20.
 - Abstract numbers must trace to results JSON.
 - An independent review report must be produced and recorded at `07_manuscript/review_report.md`.
 - If the reviewer identifies high rejection risk with irreversible flaws, stop the pipeline.

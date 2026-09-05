@@ -84,13 +84,13 @@ These are also printed by `wf status`, and several are mechanically enforced.
    (`tools/figures/qc.py`), then load the rendered PNG as an image. Reading the plotting
    code is not verification, and saying you verified without loading the image is a
    fabrication.
-6. **No explanatory prose inside figure panels.** Key visual guide goes in the legend (concise 40–80 words, visual guide only; strictly NO duplication of Methods/Results and NO abbreviations block). Full abbreviations across all text, figures, and tables belong centrally to `statements.md`. Removals from panels are logged to `05_figures/moved_to_legend.md`.
+6. **No explanatory prose inside figure panels.** Key visual guide goes in the legend (concise 40–120 words, multi-panel composite upper limit 180 words; strictly visual guide explaining symbols, lines, CI and sample size N; strictly NO duplication of Results effect size comparisons and NO abbreviations block). Full abbreviations across all text, figures, and tables belong centrally to `statements.md`. Removals from panels are logged to `05_figures/moved_to_legend.md`.
 7. **Language polishing changes wording only.** Never a number, never a citation, never a
    figure/table reference. Snapshot before the pass
    (`python tools/text/polish.py snapshot`); the gate diffs against it.
 8. **A red gate means stop and fix, not `--force`.** `--force` exists for a deliberate,
    recorded override; it writes the violation into the handoff log.
-9. **Submission package requires explicit human confirmation and independent auditor subagent review.** At S20, never advance automatically. Deliver the Word bundle for human inspection, pause to confirm user approval, then invoke an independent auditor subagent to verify journal guideline compliance, omission-free completeness, and cross-consistency (`AUDIT_REPORT.md`) before close.
+9. **Submission package requires explicit human confirmation, SHA-256 package freeze, and independent auditor subagent review.** At S20, compile package -> create manifest -> deliver Word bundle for human inspection -> pause for user confirmation -> freeze package with SHA-256 signatures (`tools/wfcore/packagefreeze.py`) -> invoke independent auditor subagent (`tools/package_review.py` + `tools/audit/audit_submission.py` v2 real physical DOCX audit) to verify journal compliance, omission-free completeness, and cross-consistency (`AUDIT_REPORT.md`) before close.
 
 ## Do not let another skill replace a stage
 
@@ -138,8 +138,11 @@ tools/tables/threeline.py   three-line xlsx writer
 tools/figures/style.py      journal rcParams + panel-first figure builder
 tools/figures/qc.py         deterministic figure QC
 tools/text/polish.py        de-AI + academic-English linter, fact-preservation diff
-tools/audit/audit_submission.py  automated submission bundle compliance & consistency audit
-reference/                  figure and table standards, loaded on demand
+tools/audit/audit_submission.py  automated submission bundle compliance & real DOCX consistency audit (v2)
+tools/wfcore/packagefreeze.py    cryptographic SHA-256 package freeze & tamper verification
+tools/package_review.py     independent auditor subagent review tool
+reference/                  figure, table and methods standards, loaded on demand
+reference/methods-structure.md   standard 5-block methods architecture across medical study types
 project/                    the paper being written; folder per phase
 project/.wf/state.json      run state
 project/.wf/handoff.md       append-only handoff log; read it when resuming
