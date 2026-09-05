@@ -84,8 +84,7 @@ These are also printed by `wf status`, and several are mechanically enforced.
    (`tools/figures/qc.py`), then load the rendered PNG as an image. Reading the plotting
    code is not verification, and saying you verified without loading the image is a
    fabrication.
-6. **No explanatory prose inside figure panels.** It goes in the legend, and every removal
-   is logged to `05_figures/moved_to_legend.md`.
+6. **No explanatory prose inside figure panels.** Key visual guide goes in the legend (concise 40–80 words, visual guide only; strictly NO duplication of Methods/Results and NO abbreviations block). Full abbreviations belong centrally to `statements.md`. Removals from panels are logged to `05_figures/moved_to_legend.md`.
 7. **Language polishing changes wording only.** Never a number, never a citation, never a
    figure/table reference. Snapshot before the pass
    (`python tools/text/polish.py snapshot`); the gate diffs against it.
