@@ -110,6 +110,7 @@ and refresh `project/07_manuscript/title_page.md` and `project/07_manuscript/sta
 - **Never bypass human review**: the agent must pause and obtain explicit user confirmation before freezing and auditing.
 - **Package Freeze required**: `package_review_freeze.json` must be written before review and verified uncorrupted after review.
 - **Triple-Perspective Review required**: `08_submission/bundle/AUDIT_REPORT.md` must encompass all three perspectives (Reader clarity, Editor low-level flaw check, and Compliance audit) with a `PASSED` or `READY_FOR_SUBMISSION` verdict before advancing.
+- **Strict Change Routing & Single Source of Truth**: If changes to content, data, figures or citations are requested, NEVER perform orphan edits on `manuscript_assembled.md` or `bundle/*.docx`. Always run `uv run python tools/wf.py route "<REQUEST>"`, execute `wf loop --to <STAGE>`, modify the single source of truth, and rebuild through the pipeline. Pure Word typography adjustments are the only allowed in-stage exception.
 - Do not fabricate a reviewer's affiliation or email when suggesting reviewers. Provide
   names and let the user supply contact details, or leave it for the portal.
 

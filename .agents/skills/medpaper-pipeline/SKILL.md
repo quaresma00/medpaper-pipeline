@@ -61,6 +61,7 @@ you remember doing. Ask the CLI.
 | `wf decide NAME VALUE --why "..."` | Record a gated decision plus its rationale |
 | `wf note "..."` | Append to the handoff log |
 | `wf loop --to S05_analysis --why "..."` | Deliberately reopen an earlier stage |
+| `wf route "..."` | Diagnose modification request, determine earliest stage & single source of truth |
 | `wf clean [--apply]` | Report scratch and undeclared files; delete scratch |
 | `wf config set KEY VALUE` | Override a target (word counts, reference counts, caps) |
 | `wf invariants` | Reprint the non-negotiable rules |
@@ -91,6 +92,7 @@ These are also printed by `wf status`, and several are mechanically enforced.
 8. **A red gate means stop and fix, not `--force`.** `--force` exists for a deliberate,
    recorded override; it writes the violation into the handoff log.
 9. **Submission package requires explicit human confirmation, SHA-256 package freeze, and independent Triple-Perspective final review.** At S20, compile package -> create manifest -> deliver Word bundle for human inspection -> pause for user confirmation -> freeze package with SHA-256 signatures (`tools/package_review.py freeze`) -> invoke independent auditor subagent to execute a unified single-pass **Triple-Perspective Final Review** (Independent Academic Reader for readability & self-explanatory figures; Journal Editor & Reviewer for zero low-level numerical/citation defects & innovation fit; Compliance Auditor for real physical DOCX integrity & guideline checks -> `AUDIT_REPORT.md`) -> verify package freeze -> close.
+10. **Strict Change Routing & Single Source of Truth.** Never perform orphan edits on derived files (such as `07_manuscript/manuscript_assembled.md` or `bundle/*.docx`). When a modification is requested at any stage: first run `uv run python tools/wf.py route "<REQUEST>"` to diagnose change type and earliest affected stage; execute `wf loop --to <STAGE>`; update the single source of truth; rebuild all downstream dependencies through the pipeline. Pure Word typography/styling at S20 is the ONLY exception that does not require `wf loop`.
 
 ## Do not let another skill replace a stage
 
@@ -140,9 +142,11 @@ tools/figures/qc.py         deterministic figure QC
 tools/text/polish.py        de-AI + academic-English linter, fact-preservation diff
 tools/audit/audit_submission.py  automated submission bundle compliance & real DOCX consistency audit (v2)
 tools/wfcore/packagefreeze.py    cryptographic SHA-256 package freeze & tamper verification
+tools/wfcore/router.py           change routing & modification dependency solver
 tools/package_review.py     independent auditor subagent review tool
-reference/                  figure, table and methods standards, loaded on demand
+reference/                  figure, table, methods and change-routing standards
 reference/methods-structure.md   standard 5-block methods architecture across medical study types
+reference/change-routing.md      modification routing and single source of truth rules
 project/                    the paper being written; folder per phase
 project/.wf/state.json      run state
 project/.wf/handoff.md       append-only handoff log; read it when resuming

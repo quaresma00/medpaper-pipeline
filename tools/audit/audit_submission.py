@@ -229,6 +229,25 @@ def audit_bundle(project_dir: Path) -> dict:
             results["missing_files"].append("Ethics approval statement missing from statements.md")
             results["overall_status"] = "ACTION_REQUIRED"
 
+    # 8. Single Source of Truth: Check for orphan edits in assembled manuscript
+    assembled_file = manuscript_dir / "manuscript_assembled.md"
+    if assembled_file.exists():
+        assembled_txt = assembled_file.read_text(encoding="utf-8", errors="replace")
+        # Ensure key sections from component files are actually reflected in assembled
+        for sec in ["title_page.md", "abstract.md", "introduction.md", "methods.md", "results.md", "discussion.md"]:
+            sec_p = manuscript_dir / sec
+            if sec_p.exists():
+                sample = sec_p.read_text(encoding="utf-8", errors="replace").strip()
+                # Take first meaningful non-heading line
+                lines = [l.strip() for l in sample.splitlines() if l.strip() and not l.strip().startswith("#")]
+                if lines:
+                    first_line = lines[0][:40]
+                    if first_line and first_line not in assembled_txt:
+                        results["consistency_issues"].append(
+                            f"Orphan edit or stale assembly: Component section '{sec}' content is not reflected in 'manuscript_assembled.md'. Run render_package.py to re-assemble."
+                        )
+                        results["overall_status"] = "ACTION_REQUIRED"
+
     return results
 
 

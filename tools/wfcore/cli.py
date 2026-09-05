@@ -270,6 +270,13 @@ def cmd_loop(args) -> int:
     return 0
 
 
+def cmd_route(args) -> int:
+    from .router import route_request, format_route_report
+    decision = route_request(args.request, getattr(args, "stage", None))
+    print(format_route_report(decision, args.request))
+    return 0
+
+
 def cmd_note(args) -> int:
     _, st, _ = _load()
     st.add_note(args.text)
@@ -500,6 +507,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--to", required=True)
     p.add_argument("--why", required=True)
     p.set_defaults(fn=cmd_loop)
+
+    p = sub.add_parser("route", help="route modification request to earliest affected stage and prescribe loop")
+    p.add_argument("request", help="user modification request description")
+    p.add_argument("--stage", help="explicit target stage if known")
+    p.set_defaults(fn=cmd_route)
 
     p = sub.add_parser("note", help="append to the handoff log")
     p.add_argument("text")
