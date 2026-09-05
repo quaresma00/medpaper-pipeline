@@ -90,6 +90,7 @@ These are also printed by `wf status`, and several are mechanically enforced.
    (`python tools/text/polish.py snapshot`); the gate diffs against it.
 8. **A red gate means stop and fix, not `--force`.** `--force` exists for a deliberate,
    recorded override; it writes the violation into the handoff log.
+9. **Submission package requires explicit human confirmation and independent auditor subagent review.** At S20, never advance automatically. Deliver the Word bundle for human inspection, pause to confirm user approval, then invoke an independent auditor subagent to verify journal guideline compliance, omission-free completeness, and cross-consistency (`AUDIT_REPORT.md`) before close.
 
 ## Do not let another skill replace a stage
 
@@ -137,6 +138,7 @@ tools/tables/threeline.py   three-line xlsx writer
 tools/figures/style.py      journal rcParams + panel-first figure builder
 tools/figures/qc.py         deterministic figure QC
 tools/text/polish.py        de-AI + academic-English linter, fact-preservation diff
+tools/audit/audit_submission.py  automated submission bundle compliance & consistency audit
 reference/                  figure and table standards, loaded on demand
 project/                    the paper being written; folder per phase
 project/.wf/state.json      run state

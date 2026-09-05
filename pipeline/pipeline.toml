@@ -507,7 +507,8 @@ outputs = [
   "08_submission/bundle/SUBMISSION_CHECKLIST.md",
   "08_submission/bundle/manifest.json",
   "08_submission/bundle/cover_letter.docx",
-  "08_submission/bundle/manuscript.docx"
+  "08_submission/bundle/manuscript.docx",
+  "08_submission/bundle/AUDIT_REPORT.md"
 ]
 [[stage.gate]]
 check = "outputs_exist"
