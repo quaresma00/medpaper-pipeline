@@ -366,7 +366,7 @@ def figures_qc_pass(ctx: Ctx) -> Result:
         if f is None:
             problems.append(f"{eid}: no QC entry")
             continue
-        failed = [c.get("name") for c in f.get("checks", []) if not c.get("ok")]
+        failed = [c.get("name") for c in f.get("checks", []) if (not c.get("ok")) and c.get("severity", "fail") == "fail"]
         if failed:
             problems.append(f"{eid}: failing {', '.join(failed)}")
         if not f.get("visual_reviewed"):

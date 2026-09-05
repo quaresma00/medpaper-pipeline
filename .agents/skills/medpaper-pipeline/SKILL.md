@@ -9,6 +9,22 @@ metadata:
 
 # medpaper pipeline
 
+## Master Template & Dispatch Rule
+
+The official and authoritative master template of this pipeline is strictly anchored at:
+`F:\workspace\medpapaer\gemini`
+
+When this skill is invoked:
+1. **Existing paper project**: If the current workspace already contains `pipeline/` and `tools/wf.py`, resume the pipeline immediately by running:
+   ```bash
+   uv run python tools/wf.py status
+   ```
+2. **New / Empty project**: If the current workspace lacks the pipeline files, do NOT fail or invent files. Automatically copy the complete purified engine structure (`pipeline/`, `tools/`, `project/`, `reference/`, `.agent/`, `.agents/`, `requirements.txt`, `.gitignore`) directly from the master template at `F:\workspace\medpapaer\gemini` into the current workspace, run:
+   ```bash
+   uv run python tools/wf.py init
+   ```
+   and proceed to Stage S01.
+
 This repository holds a 20-stage research pipeline. The workflow is **not** in this file
 and must not be reconstructed from memory. It lives in `pipeline/pipeline.toml` and
 `pipeline/stages/*.md`, and a CLI hands you exactly one stage at a time.
@@ -18,12 +34,12 @@ file on disk does not. Anything you need to know is one command away, always cur
 
 ## The only loop you need
 
-```
-python tools/wf.py status                       # where am I, what is blocking, full stage card
+```bash
+uv run python tools/wf.py status                 # where am I, what is blocking, full stage card
 <do the work described on the card>
-python tools/wf.py check                        # run the stage's gate
+uv run python tools/wf.py check                  # run the stage's gate
 <fix what it reports>
-python tools/wf.py advance --note "..."         # closes the stage; refuses on a red gate
+uv run python tools/wf.py advance --note "..."   # closes the stage; refuses on a red gate
 ```
 
 **Run `status` first, every session, before anything else.** It prints the invariants, the

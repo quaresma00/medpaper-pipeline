@@ -4,14 +4,15 @@ render_package.py - Assemble and render publication-grade Word documents for the
 Handles:
 1. Dynamically parsing target journal guidelines (font size, line spacing) from guidelines_extract.md.
 2. Generating a matched medical reference docx (Times New Roman, pure black, no link underlines).
-3. Assembling the complete manuscript:
-   - title_page.md
-   - abstract.md (with cleaned, unpolluted Keywords appended at end)
-   - introduction.md, methods.md, results.md, discussion.md, statements.md
+3. Counting actual unique citations referenced in the text and auto-calibrating Title Page reference count.
+4. Assembling the complete manuscript:
+   - title_page.md (calibrated reference count, clean metadata)
+   - abstract.md (with cleaned Keywords appended at end)
+   - introduction.md, methods.md, results.md, discussion.md, statements.md (with centralized Abbreviations)
    - # References heading
-   - # Figure Legends (refined, concise, appended to manuscript end)
-4. Compiling manuscript.docx with pandoc citeproc against refs.bib and journal CSL.
-5. Compiling cover_letter.docx and supplementary_materials.docx (converting from md).
+   - # Figure Legends (stripped of Abbreviations, stripped of Results/Methods duplication, pure visual guide)
+5. Compiling manuscript.docx with pandoc citeproc against refs.bib and journal CSL.
+6. Compiling cover_letter.docx and supplementary_materials.docx.
 """
 
 from __future__ import annotations
@@ -50,6 +51,34 @@ def extract_guideline_formatting(guidelines_path: Path) -> tuple[float, str]:
     return body_size, line_spacing
 
 
+def count_actual_citations(project_dir: Path) -> int:
+    """Extract all unique citation keys actually referenced in manuscript prose."""
+    manuscript_dir = project_dir / "07_manuscript"
+    keys: set[str] = set()
+    for name in ("introduction.md", "methods.md", "results.md", "discussion.md", "statements.md"):
+        p = manuscript_dir / name
+        if p.exists():
+            text = p.read_text(encoding="utf-8", errors="replace")
+            # Pandoc citations: [@smith2020; @johnson2021] or @doe2022
+            for grp in re.findall(r"\[([^\]]*@[^\]]*)\]", text):
+                keys.update(re.findall(r"@([A-Za-z][\w:.#$%&+?<>~/-]*)", grp))
+            for single in re.findall(r"(?<!\w)@([A-Za-z][\w:.#$%&+?<>~/-]*)", text):
+                keys.add(single)
+    return len(keys)
+
+
+def calibrate_title_page_refcount(title_page_text: str, actual_ref_count: int) -> str:
+    """Ensure Title Page states the real number of cited references, not the whole library size."""
+    if not title_page_text:
+        return title_page_text
+
+    # Match patterns like "Number of references: 50" or "References: 50"
+    pattern = r"(?i)(\b(?:number\s+of\s+references|references?)\s*:\s*)\d+"
+    if re.search(pattern, title_page_text):
+        return re.sub(pattern, rf"\g<1>{actual_ref_count}", title_page_text)
+    return title_page_text
+
+
 def clean_keywords(text: str) -> str:
     """Clean MeSH / code qualifiers from keywords and ensure canonical placement at Abstract end."""
     kw_pattern = r'(?is)(?:#+\s*)?(?:Keywords?|Key\s*words?)(?:\s*\([^)]*\))?:?\s*(.+?)(?=\n\s*#|\Z)'
@@ -80,22 +109,33 @@ def clean_keywords(text: str) -> str:
     return text_without_kw + '\n\n' + kw_line
 
 
-def refine_legend_content(legend_text: str) -> str:
-    """Ensure Figure Legends are concise and strictly follow the 4-element medical standard."""
-    lines = legend_text.strip().splitlines()
-    cleaned = []
-    for line in lines:
-        l = line.strip()
-        if not l:
+def clean_legend_block(legend_text: str) -> str:
+    """Clean figure legends: strip duplicate Abbreviations, strip Methods/Results bloat, ensure clean visual guide."""
+    if not legend_text.strip():
+        return ""
+
+    blocks = re.split(r"(?m)(?=^(?:#+\s*)?Figure\s+[S\d]+)", legend_text)
+    cleaned_blocks = []
+
+    for block in blocks:
+        b = block.strip()
+        if not b:
             continue
-        # Format heading e.g. Figure 1. -> **Figure 1.**
-        fig_match = re.match(r"^(#+\s*)?(Figure\s+[S\d]+[\.\:]?)\s*(.*)", l, re.IGNORECASE)
-        if fig_match:
-            prefix = fig_match.group(2).rstrip(":").rstrip(".")
-            rest = fig_match.group(3).strip()
-            l = f"**{prefix}.** {rest}"
-        cleaned.append(l)
-    return "\n\n".join(cleaned)
+
+        # Strip out Abbreviations block from individual legend (as it is in Declarations/Statements)
+        b = re.sub(r"(?is)\bAbbreviations?:?\s*.*$", "", b).strip()
+
+        # Format title e.g. "Figure 1. Flow diagram..." -> "**Figure 1.** Flow diagram..."
+        m = re.match(r"^(?:#+\s*)?(Figure\s+[S\d]+[\.\:]?)\s*(.*)", b, re.IGNORECASE | re.DOTALL)
+        if m:
+            prefix = m.group(1).rstrip(":").rstrip(".")
+            body = m.group(2).strip()
+            # Clean header Markdown symbols
+            b = f"**{prefix}.** {body}"
+
+        cleaned_blocks.append(b)
+
+    return "\n\n".join(cleaned_blocks)
 
 
 def assemble_manuscript_md(project_dir: Path) -> Path:
@@ -107,7 +147,10 @@ def assemble_manuscript_md(project_dir: Path) -> Path:
         p = manuscript_dir / name
         return p.read_text(encoding="utf-8", errors="ignore").strip() if p.exists() else ""
 
-    title_page = read_part("title_page.md")
+    # Count real citations
+    real_refs = count_actual_citations(project_dir)
+
+    title_page = calibrate_title_page_refcount(read_part("title_page.md"), real_refs)
     abstract = clean_keywords(read_part("abstract.md"))
     intro = read_part("introduction.md")
     methods = read_part("methods.md")
@@ -120,10 +163,11 @@ def assemble_manuscript_md(project_dir: Path) -> Path:
     legends = ""
     if legends_file.exists():
         raw_legends = legends_file.read_text(encoding="utf-8", errors="ignore").strip()
-        refined_legends = refine_legend_content(raw_legends)
-        legends = "# Figure Legends\n\n" + refined_legends
+        cleaned_legends = clean_legend_block(raw_legends)
+        if cleaned_legends:
+            legends = "# Figure Legends\n\n" + cleaned_legends
 
-    # Combine with page breaks
+    # Combine with clear boundaries
     parts = [
         title_page,
         abstract,
@@ -138,8 +182,8 @@ def assemble_manuscript_md(project_dir: Path) -> Path:
     combined = "\n\n".join([p for p in parts if p])
 
     if legends:
-        # Pandoc bibliography will append before or at the end;
-        # We append Figure Legends at the very end
+        # Pandoc citeproc places the bibliography before or at the end;
+        # We append Figure Legends as the final section
         combined += "\n\n" + legends + "\n"
 
     out_path = project_dir / "07_manuscript" / "manuscript_assembled.md"
@@ -188,7 +232,7 @@ def render_all(project_dir: Path, csl_path: Path | None = None) -> int:
     if csl_path and csl_path.exists():
         pandoc_cmd.append(f"--csl={csl_path}")
 
-    print("Rendering manuscript.docx via Pandoc...")
+    print(f"Rendering manuscript.docx via Pandoc (Font=Times New Roman, Size={body_size}pt, Spacing={line_spacing})...")
     subprocess.run(pandoc_cmd, check=True)
     print(f"Rendered: {manuscript_docx}")
 

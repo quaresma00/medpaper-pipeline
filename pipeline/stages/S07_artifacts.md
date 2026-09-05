@@ -59,20 +59,19 @@ python tools/pubmed/client.py fetch --ids <...> --with-abstract
    requirements. `other` is available but demands an `archetype_rationale`, and it turns off
    the domain checks, so prefer a real archetype.
 4. **Legends.** Write `project/05_figures/legends.md`, one block per figure, each headed
-   `Figure N.` / `Figure S1.` A medical figure legend is an optical navigation guide,
-   NOT a second Methods or Results section. Keep each legend strictly bounded (typically 80–150 words)
-   and enforce the **four-element standard**:
-   - **Concise Title**: A single declarative or descriptive sentence summarizing the primary message.
-   - **Panel Guides**: (A), (B)... naming the specific cohort, variables, axes, and stratifications plotted.
-   - **Visual & Statistical Annotations**: What points/bars represent (e.g. odds ratios, Wilson 95% CI),
-     the statistical test, and significance thresholds (e.g. *P < 0.05, **P < 0.01).
-   - **Alphabetical Abbreviations**: Expanded acronyms at the end (e.g. `Abbreviations: CI, confidence interval; OR, odds ratio.`).
-   *Anti-bloat rule*: Do NOT repeat screening mechanics, inter-rater reliability calculations (e.g. Cohen's kappa),
-   or lengthy subgroup epidemiology in the legend. Those belong in Methods and Results.
+   `Figure N.` / `Figure S1.` A medical figure legend is strictly an **optical navigation guide** so the reader can understand the visual elements of the chart, NOT a second Results or Methods section.
+   Keep each legend strictly bounded (typically **40–80 words**, 2–3 sentences max) and enforce the **three-element visual standard**:
+   - **Concise Title**: A single bold sentence summarizing what the chart displays.
+   - **Panel Guides**: (A), (B)... explaining what is plotted on the axes and what the curves, bars, or markers represent.
+   - **Visual & Statistical Markers**: Definition of error bars (e.g. 95% CI) and threshold markers.
+   
+   **Strict Prohibitions**:
+   - **NO Results Duplication**: Absolutely NEVER state empirical outcome numbers, percentages, odds ratios, hazard ratios, or P-values in the legend (e.g. do NOT write "wire fracture decreased from 37.5% to 20.1% (OR=0.418, p=0.0005)"). All data findings belong exclusively in Results.
+   - **NO Methods Duplication**: NEVER describe screening steps, blinded manual adjudication, or Cohen's kappa reliability scores in the legend. Those belong exclusively in Methods.
+   - **NO Abbreviations in Legends**: Full manuscript abbreviations are placed in the **Declarations and Statements** section. Do NOT duplicate an Abbreviations list inside individual figure legends.
 5. **Table captions.** Write `project/04_tables/table_captions.md`, one block per table,
    headed `Table N.` Each needs a title line plus the footnote content: abbreviation
-   expansions, units, the test used, what a dagger/asterisk marks. At least one block
-   must contain an abbreviations footnote.
+   expansions, units, the test used, what a dagger/asterisk marks.
 
 ## Outputs
 - `01_protocol/artifact_benchmark.md`
@@ -83,9 +82,9 @@ python tools/pubmed/client.py fetch --ids <...> --with-abstract
 ## Hard rules
 - Do not draw anything yet. No xlsx, no png.
 - Do not plan a display item you have no result JSON for.
-- Do not bloat legends with Methods text (kappa scores, consensus rules, full narrative flow).
-  Follow the 4-element standard strictly.
-- Visual elements go into the panel; statistical and optical explanations go into the legend.
+- **Legends must NOT report data findings**: zero percentages, zero odds ratios, zero P-values in legends.md.
+- **Legends must NOT include Abbreviations lists**: abbreviations belong in Declarations and Statements.
+- Keep legends minimal: readers only need to understand what is visually plotted.
 
 ## Close
 ```bash

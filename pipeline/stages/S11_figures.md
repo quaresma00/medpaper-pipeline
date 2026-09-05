@@ -69,17 +69,13 @@ python tools/figures/qc.py --all
    explanatory text; overall resolution and aliasing.
 6. Fix the **script**, re-render, re-run QC, look again. Repeat until clean. Say in each
    round which findings came from QC and which came from looking.
-7. **Strip explanatory text from the panels.** Anything that explains rather than
-   constitutes the figure moves to the legend: test names, adjustment sets, cohort
-   provenance, abbreviation definitions, threshold definitions, "dashed line = median",
-   "n.s. = not significant", software versions, caveats. Log every removal in
-   `project/05_figures/moved_to_legend.md` as `Figure N | removed text | now in legend`,
-   and add the information to `05_figures/legends.md` in the same edit. Never fix this by
-   greying the text down - delete it and put it in the legend.
-   Panel text that stays: axis titles and units, tick labels, panel letters, group labels,
-   legend entries, significance markers, key data values (n, HR with CI, AUC, r), and
-   guideline-mandated in-figure content (KM risk tables, CONSORT/PRISMA box text, scale
-   bars). All of it black or near-black, at or above the size floor.
+7. **Keep panels clean without bloating legends.** Visual panels must remain uncluttered:
+   axis titles and units, tick labels, panel letters (A, B...), and group keys.
+   Do NOT move long methodological explanations, cohort screening narratives, statistical recipes,
+   or empirical results data into `05_figures/legends.md`. Figure legends must remain strictly
+   minimal visual guides (40–80 words). Do NOT append Abbreviations lists to legends (abbreviations
+   belong in Declarations and Statements). Log panel text cleanup in
+   `project/05_figures/moved_to_legend.md` only for true visual legend definitions (e.g. "dashed line = null effect").
 8. Write `project/05_figures/manifest.json`:
 ```json
 {"built_at": "", "figures": [{"id": "Figure 1", "script": "", "png": "", "tiff": "",

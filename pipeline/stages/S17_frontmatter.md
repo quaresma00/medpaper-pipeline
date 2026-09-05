@@ -23,7 +23,15 @@
    "code_availability": "Available from the authors", "acknowledgements": "",
    "preprint": null, "prior_presentation": null}
   ```
-- Write `project/07_manuscript/title_page.md` and `project/07_manuscript/statements.md` using these placeholders.
+- Write `project/07_manuscript/title_page.md`: title, running title, author placeholders, word counts,
+  figure/table counts, and **Reference count**.
+  - *Reference count rule*: Must count the **actual unique citekeys referenced in the text** (Introduction,
+    Methods, Results, Discussion). Absolutely NEVER write the total size of the reference library (e.g. 50).
+- Write `project/07_manuscript/statements.md`: ethics, consent, funding, conflicts, data availability,
+  code availability, author contributions, acknowledgements, and **Abbreviations**.
+  - *Abbreviations section*: Centralize the complete manuscript abbreviations list under `### Abbreviations`.
+    Format as an alphabetical semicolon-separated block (e.g. `FDA, Food and Drug Administration; OR, odds ratio; CI, confidence interval.`).
+    With this section present, figure legends do NOT need to repeat an Abbreviations block.
 - Write `project/07_manuscript/abstract.md`: structured (Background, Methods, Results, Conclusions). Every number copied from `results.md` (provable via results JSON).
 - **Keywords Rule**: Keywords must be placed **at the very end of `abstract.md`** (never before Abstract or on a standalone page).
   - Select exactly 3–5 clean, canonical medical terms (e.g. `Keywords: Stents, Biliary strictures, Adverse events, Postmarket surveillance.`).
