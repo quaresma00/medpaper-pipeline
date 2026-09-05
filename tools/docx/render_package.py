@@ -12,15 +12,19 @@ Handles:
    - # References heading
    - # Figure Legends (stripped of Abbreviations, stripped of Results/Methods duplication, pure visual guide)
 5. Compiling manuscript.docx with pandoc citeproc against refs.bib and journal CSL.
-6. Compiling cover_letter.docx and supplementary_materials.docx.
+6. Post-processing docx to permanently eliminate soft manual line breaks (<w:br/> down arrows).
+7. Compiling cover_letter.docx and supplementary_materials.docx with identical typography and cleaning.
 """
 
 from __future__ import annotations
 
 import argparse
+import io
 import re
 import subprocess
 import sys
+import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -79,6 +83,19 @@ def calibrate_title_page_refcount(title_page_text: str, actual_ref_count: int) -
     return title_page_text
 
 
+def clean_markdown_soft_breaks(text: str) -> str:
+    """Strip manual line break triggers (trailing backslashes, trailing whitespace, HTML br) from markdown prose."""
+    if not text:
+        return text
+    # 1. Replace HTML <br> tags with newline
+    text = re.sub(r'(?i)<br\s*/?>', '\n', text)
+    # 2. Strip trailing backslashes that cause Pandoc to emit soft linebreaks
+    text = re.sub(r'\\+\s*$', '', text, flags=re.MULTILINE)
+    # 3. Strip trailing whitespace (>=2 spaces at EOL triggers Markdown <br>)
+    text = re.sub(r'[ \t]+$', '', text, flags=re.MULTILINE)
+    return text
+
+
 def clean_keywords(text: str) -> str:
     """Clean MeSH / code qualifiers from keywords and ensure canonical placement at Abstract end."""
     kw_pattern = r'(?is)(?:#+\s*)?(?:Keywords?|Key\s*words?)(?:\s*\([^)]*\))?:?\s*(.+?)(?=\n\s*#|\Z)'
@@ -130,12 +147,111 @@ def clean_legend_block(legend_text: str) -> str:
         if m:
             prefix = m.group(1).rstrip(":").rstrip(".")
             body = m.group(2).strip()
-            # Clean header Markdown symbols
             b = f"**{prefix}.** {body}"
 
         cleaned_blocks.append(b)
 
     return "\n\n".join(cleaned_blocks)
+
+
+def strip_manual_line_breaks_from_docx(docx_path: Path) -> None:
+    """Inspect and convert any soft manual line breaks (<w:br/> without page/column type)
+    into genuine hard paragraphs (<w:p>) in the docx OpenXML.
+    This permanently eliminates down-pointing arrow (↓) line breaks in Microsoft Word.
+    """
+    if not docx_path.exists():
+        return
+
+    w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    ET.register_namespace('w', w_ns)
+
+    temp_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(docx_path, 'r') as zin:
+        with zipfile.ZipFile(temp_buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                content = zin.read(item.filename)
+                # Inspect all XML files under word/
+                if item.filename.startswith("word/") and item.filename.endswith(".xml"):
+                    try:
+                        root = ET.fromstring(content)
+                        modified = False
+
+                        for parent in root.iter():
+                            p_list = [c for c in list(parent) if c.tag == f"{{{w_ns}}}p"]
+                            if not p_list:
+                                continue
+
+                            for p in p_list:
+                                # Check if paragraph contains soft line breaks
+                                soft_brs = [
+                                    br for br in p.findall(f".//{{{w_ns}}}br")
+                                    if br.attrib.get(f"{{{w_ns}}}type") not in ("page", "column")
+                                ]
+                                if not soft_brs:
+                                    continue
+
+                                pPr = p.find(f"{{{w_ns}}}pPr")
+                                pPr_copy = ET.fromstring(ET.tostring(pPr)) if pPr is not None else None
+
+                                new_paragraphs = []
+                                current_p = ET.Element(f"{{{w_ns}}}p")
+                                if pPr_copy is not None:
+                                    current_p.append(ET.fromstring(ET.tostring(pPr_copy)))
+
+                                for child in list(p):
+                                    if child == pPr:
+                                        continue
+                                    if child.tag == f"{{{w_ns}}}r":
+                                        rPr = child.find(f"{{{w_ns}}}rPr")
+                                        current_r = ET.Element(f"{{{w_ns}}}r")
+                                        if rPr is not None:
+                                            current_r.append(ET.fromstring(ET.tostring(rPr)))
+
+                                        for r_elem in list(child):
+                                            if r_elem == rPr:
+                                                continue
+                                            if r_elem.tag == f"{{{w_ns}}}br" and r_elem.attrib.get(f"{{{w_ns}}}type") not in ("page", "column"):
+                                                # Encountered soft break: close current run & paragraph
+                                                if len(current_r) > (1 if rPr is not None else 0):
+                                                    current_p.append(current_r)
+                                                if len(current_p) > (1 if pPr_copy is not None else 0):
+                                                    new_paragraphs.append(current_p)
+
+                                                # Start new hard paragraph with identical styling
+                                                current_p = ET.Element(f"{{{w_ns}}}p")
+                                                if pPr_copy is not None:
+                                                    current_p.append(ET.fromstring(ET.tostring(pPr_copy)))
+                                                current_r = ET.Element(f"{{{w_ns}}}r")
+                                                if rPr is not None:
+                                                    current_r.append(ET.fromstring(ET.tostring(rPr)))
+                                            else:
+                                                current_r.append(r_elem)
+
+                                        if len(current_r) > (1 if rPr is not None else 0):
+                                            current_p.append(current_r)
+                                    else:
+                                        current_p.append(child)
+
+                                if len(current_p) > (1 if pPr_copy is not None else 0):
+                                    new_paragraphs.append(current_p)
+
+                                if new_paragraphs:
+                                    idx = list(parent).index(p)
+                                    parent.remove(p)
+                                    for offset, np in enumerate(new_paragraphs):
+                                        parent.insert(idx + offset, np)
+                                    modified = True
+
+                        if modified:
+                            content = ET.tostring(root, encoding="utf-8")
+                    except Exception:
+                        # Safety fallback: regex strip raw soft br elements
+                        content = re.sub(rb'<w:br(?:\s*/>|\s+w:type="textWrapping"\s*/>)', b'', content)
+
+                zout.writestr(item, content)
+
+    docx_path.write_bytes(temp_buffer.getvalue())
 
 
 def assemble_manuscript_md(project_dir: Path) -> Path:
@@ -145,7 +261,10 @@ def assemble_manuscript_md(project_dir: Path) -> Path:
 
     def read_part(name: str) -> str:
         p = manuscript_dir / name
-        return p.read_text(encoding="utf-8", errors="ignore").strip() if p.exists() else ""
+        if not p.exists():
+            return ""
+        txt = p.read_text(encoding="utf-8", errors="ignore").strip()
+        return clean_markdown_soft_breaks(txt)
 
     # Count real citations
     real_refs = count_actual_citations(project_dir)
@@ -163,7 +282,7 @@ def assemble_manuscript_md(project_dir: Path) -> Path:
     legends = ""
     if legends_file.exists():
         raw_legends = legends_file.read_text(encoding="utf-8", errors="ignore").strip()
-        cleaned_legends = clean_legend_block(raw_legends)
+        cleaned_legends = clean_legend_block(clean_markdown_soft_breaks(raw_legends))
         if cleaned_legends:
             legends = "# Figure Legends\n\n" + cleaned_legends
 
@@ -185,6 +304,9 @@ def assemble_manuscript_md(project_dir: Path) -> Path:
         # Pandoc citeproc places the bibliography before or at the end;
         # We append Figure Legends as the final section
         combined += "\n\n" + legends + "\n"
+
+    # Final pass of soft-break cleaning
+    combined = clean_markdown_soft_breaks(combined)
 
     out_path = project_dir / "07_manuscript" / "manuscript_assembled.md"
     out_path.write_text(combined, encoding="utf-8")
@@ -234,35 +356,48 @@ def render_all(project_dir: Path, csl_path: Path | None = None) -> int:
 
     print(f"Rendering manuscript.docx via Pandoc (Font=Times New Roman, Size={body_size}pt, Spacing={line_spacing})...")
     subprocess.run(pandoc_cmd, check=True)
-    print(f"Rendered: {manuscript_docx}")
+
+    # Post-process docx to eliminate manual line breaks
+    strip_manual_line_breaks_from_docx(manuscript_docx)
+    print(f"Rendered & purified (no soft arrows): {manuscript_docx}")
 
     # 4. Render cover_letter.docx
     cover_letter_md = bundle_dir / "cover_letter.md"
     if not cover_letter_md.exists():
         cover_letter_md = project_dir / "08_submission" / "cover_letter.md"
     if cover_letter_md.exists():
+        cl_text = clean_markdown_soft_breaks(cover_letter_md.read_text(encoding="utf-8", errors="ignore"))
+        temp_cl_md = cache_dir / "clean_cover_letter.md"
+        temp_cl_md.write_text(cl_text, encoding="utf-8")
+
         cover_letter_docx = bundle_dir / "cover_letter.docx"
         cmd_cl = [
-            "pandoc", str(cover_letter_md),
+            "pandoc", str(temp_cl_md),
             f"--reference-doc={med_ref_docx}",
             "-o", str(cover_letter_docx),
         ]
         subprocess.run(cmd_cl, check=True)
-        print(f"Rendered: {cover_letter_docx}")
+        strip_manual_line_breaks_from_docx(cover_letter_docx)
+        print(f"Rendered & purified: {cover_letter_docx}")
 
     # 5. Render supplementary_materials.docx
     supp_methods_md = project_dir / "07_manuscript" / "supplementary_methods.md"
     if supp_methods_md.exists():
+        supp_text = clean_markdown_soft_breaks(supp_methods_md.read_text(encoding="utf-8", errors="ignore"))
+        temp_supp_md = cache_dir / "clean_supp.md"
+        temp_supp_md.write_text(supp_text, encoding="utf-8")
+
         supp_docx = bundle_dir / "supplementary_materials.docx"
         cmd_supp = [
-            "pandoc", str(supp_methods_md),
+            "pandoc", str(temp_supp_md),
             f"--reference-doc={med_ref_docx}",
             "-o", str(supp_docx),
         ]
         subprocess.run(cmd_supp, check=True)
-        print(f"Rendered: {supp_docx}")
+        strip_manual_line_breaks_from_docx(supp_docx)
+        print(f"Rendered & purified: {supp_docx}")
 
-    print("\nAll submission bundle Word documents rendered successfully.")
+    print("\nAll submission bundle Word documents rendered and purified successfully.")
     return 0
 
 

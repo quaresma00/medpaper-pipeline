@@ -64,14 +64,13 @@ python tools/pubmed/client.py fetch --ids <...> --with-abstract
    - **Concise Title**: A single bold sentence summarizing what the chart displays.
    - **Panel Guides**: (A), (B)... explaining what is plotted on the axes and what the curves, bars, or markers represent.
    - **Visual & Statistical Markers**: Definition of error bars (e.g. 95% CI) and threshold markers.
-   
-   **Strict Prohibitions**:
-   - **NO Results Duplication**: Absolutely NEVER state empirical outcome numbers, percentages, odds ratios, hazard ratios, or P-values in the legend (e.g. do NOT write "wire fracture decreased from 37.5% to 20.1% (OR=0.418, p=0.0005)"). All data findings belong exclusively in Results.
-   - **NO Methods Duplication**: NEVER describe screening steps, blinded manual adjudication, or Cohen's kappa reliability scores in the legend. Those belong exclusively in Methods.
-   - **NO Abbreviations in Legends**: Full manuscript abbreviations are placed in the **Declarations and Statements** section. Do NOT duplicate an Abbreviations list inside individual figure legends.
-5. **Table captions.** Write `project/04_tables/table_captions.md`, one block per table,
-   headed `Table N.` Each needs a title line plus the footnote content: abbreviation
-   expansions, units, the test used, what a dagger/asterisk marks.
+      **Strict Prohibitions**:
+    - **NO Results Duplication**: The legend's only role is to help the reader understand the visual chart elements. Absolutely NEVER repeat empirical outcome numbers, percentages, mean/SD, IQR, odds ratios, hazard ratios, or P-values in the legend (e.g. do NOT write "wire fracture decreased from 37.5% to 20.1% (OR=0.418, p=0.0005)"). All findings belong exclusively in Results and the chart itself.
+    - **NO Methods Duplication**: NEVER describe screening steps, blinded adjudication protocols, or reliability scores in the legend. Those belong exclusively in Methods.
+    - **NO Abbreviations in Legends**: Full abbreviations are placed centrally in the **Declarations and Statements** section. Do NOT duplicate an Abbreviations list inside individual figure legends.
+5. **Table captions & footnotes.** Write `project/04_tables/table_captions.md`, one block per table,
+   headed `Table N.` Each needs a title line plus the footnote content: units, data representation (e.g. "Data are n (%) unless stated otherwise"), the statistical tests used, and what asterisks/daggers mark.
+   - **Centralized Abbreviations for Tables**: If a table contains multiple abbreviations, do NOT bloat the table footnotes by repeating an exhaustive dictionary. All abbreviations across the manuscript, figures, and tables are centralized in **Declarations and Statements** (`statements.md`). Footnotes only state: "Abbreviations are listed in the Statements section" or define at most 1–2 highly table-specific ad-hoc symbols.
 
 ## Outputs
 - `01_protocol/artifact_benchmark.md`
@@ -82,9 +81,9 @@ python tools/pubmed/client.py fetch --ids <...> --with-abstract
 ## Hard rules
 - Do not draw anything yet. No xlsx, no png.
 - Do not plan a display item you have no result JSON for.
-- **Legends must NOT report data findings**: zero percentages, zero odds ratios, zero P-values in legends.md.
-- **Legends must NOT include Abbreviations lists**: abbreviations belong in Declarations and Statements.
-- Keep legends minimal: readers only need to understand what is visually plotted.
+- **Legends must NOT report data findings**: zero percentages, zero odds ratios, zero P-values in legends.md. Pure visual guide only.
+- **Abbreviations are centralized in Declarations and Statements**: do NOT clutter figure legends or table footnotes with long repetitive abbreviation lists.
+- Keep legends minimal (40–80 words): readers only need to understand what is visually plotted.
 
 ## Close
 ```bash

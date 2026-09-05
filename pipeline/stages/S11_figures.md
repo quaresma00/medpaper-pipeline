@@ -100,6 +100,8 @@ python tools/wf.py decide figures_visually_confirmed YES --why "<per figure: wha
   label's coordinates. Fix the layout structure (gridspec ratios, panel spans, SubFigure
   composition).
 - No 3-D decoration, no gratuitous gridlines, no chartjunk.
+- **Legends must NOT duplicate Results or Methods**: zero empirical outcome numbers, zero percentages, zero odds ratios, zero P-values. Figure legends are strictly optical guides so readers can understand the chart visual elements (40–80 words).
+- **No Abbreviations lists in Legends**: all abbreviations are centralized in Declarations and Statements (`statements.md`).
 - Do not add a figure that is not in the artifact plan.
 
 ## Close

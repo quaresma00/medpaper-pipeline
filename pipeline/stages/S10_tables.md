@@ -21,8 +21,8 @@ write_table(
     rows=[["Age, years, mean (SD)", "62.1 (11.4)", "61.7 (12.0)", "0.62"]],
     footnotes=[
         "Data are n (%) unless stated otherwise.",
-        "Abbreviations: SD, standard deviation; BMI, body mass index.",
-        "P values from the two-sided t test for continuous and chi-square for categorical variables.",
+        "P values from the two-sided Student's t-test for continuous variables and chi-square test for categorical variables.",
+        "Abbreviations are defined in the manuscript Statements section.",
     ],
 )
 ```
@@ -59,7 +59,8 @@ python tools/wf.py check
   and footnote blocks over 1500 characters.
 - Every numeric cell must trace to `03_analysis/results/*.json` (gate:
   `numbers_have_provenance source=tables`). Do not retype from the Results prose.
-- Titles are self-contained and short. Footnotes carry abbreviations, units and tests.
+- Titles are self-contained and short. Footnotes carry sample units, statistical tests, and symbol keys.
+- **Abbreviations centralization**: If a table has multiple abbreviations, do NOT bloat footnotes with repetitive dictionaries. Centralize all abbreviations in `statements.md`. Footnotes only state "Abbreviations are defined in the manuscript Statements section" or define at most 1–2 unique symbols.
 - Do not add a table that is not in the plan. If one is needed, loop to S07.
 
 ## Close

@@ -31,7 +31,7 @@
   code availability, author contributions, acknowledgements, and **Abbreviations**.
   - *Abbreviations section*: Centralize the complete manuscript abbreviations list under `### Abbreviations`.
     Format as an alphabetical semicolon-separated block (e.g. `FDA, Food and Drug Administration; OR, odds ratio; CI, confidence interval.`).
-    With this section present, figure legends do NOT need to repeat an Abbreviations block.
+    This section is the single authoritative repository for all acronyms and abbreviations appearing in the main text, all figures, and all tables. With this section present, figure legends and table footnotes do NOT repeat long abbreviation lists.
 - Write `project/07_manuscript/abstract.md`: structured (Background, Methods, Results, Conclusions). Every number copied from `results.md` (provable via results JSON).
 - **Keywords Rule**: Keywords must be placed **at the very end of `abstract.md`** (never before Abstract or on a standalone page).
   - Select exactly 3–5 clean, canonical medical terms (e.g. `Keywords: Stents, Biliary strictures, Adverse events, Postmarket surveillance.`).
