@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import hashlib
 import json
 import re
 import sys
@@ -96,6 +97,82 @@ def verify_entry(entry: dict, live: dict | None, strict: bool) -> dict:
     return result
 
 
+PROVENANCE_SALT = "medpaper-ncbi-provenance-v1-academic-integrity-seal"
+
+
+def compute_file_sha256(path: Path) -> str:
+    """Compute SHA-256 of a raw cache file."""
+    if not path.exists() or not path.is_file():
+        return ""
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def compute_provenance_digest(records: dict, verified_at: str, project_dir: Path) -> tuple[str, list[str]]:
+    """Compute an unforgeable cryptographic provenance digest for all verified records.
+
+    Binds each verified reference to:
+    1. Its real PMID and normalized DOI
+    2. The physical SHA-256 hash of its raw NCBI E-utilities XML cache file
+    3. The verified_at timestamp and internal integrity salt
+    """
+    problems = []
+    tokens = []
+
+    for citekey in sorted(records.keys()):
+        rec = records[citekey]
+        if not rec.get("verified"):
+            continue
+
+        pmid = str(rec.get("pmid", "")).strip()
+        doi = str(rec.get("doi", "")).strip().lower()
+        cache_rel = str(rec.get("cache_file", "")).strip()
+
+        if not cache_rel:
+            problems.append(f"{citekey}: verified entry is missing 'cache_file' proof-of-retrieval")
+            continue
+
+        cache_path = project_dir / cache_rel
+        if not cache_path.exists() or cache_path.stat().st_size == 0:
+            problems.append(f"{citekey}: raw cache file {cache_rel} is missing or empty on disk")
+            continue
+
+        cache_hash = compute_file_sha256(cache_path)
+        token = f"{citekey}|pmid:{pmid}|doi:{doi}|cache:{cache_hash}"
+        tokens.append(token)
+
+    payload = f"{PROVENANCE_SALT}||{verified_at}||" + "||".join(tokens)
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return digest, problems
+
+
+def verify_provenance_signature(data: dict, project_dir: Path) -> tuple[bool, str]:
+    """Validate that verified.json was legitimately produced by verify.py and has not been tampered with."""
+    if not isinstance(data, dict):
+        return False, "verified.json is not a valid JSON object"
+
+    stored_digest = data.get("provenance_digest")
+    if not stored_digest or len(stored_digest) != 64:
+        return False, "missing or invalid 'provenance_digest'; file was not signed by official verify.py"
+
+    verified_at = data.get("verified_at", "")
+    records = data.get("records", {})
+    if not isinstance(records, dict):
+        return False, "malformed 'records' dictionary"
+
+    computed_digest, problems = compute_provenance_digest(records, verified_at, project_dir)
+    if problems:
+        return False, "cache provenance broken: " + "; ".join(problems[:3])
+
+    if stored_digest != computed_digest:
+        return False, "cryptographic signature mismatch (tampering detected: verified.json was modified outside verify.py)"
+
+    return True, f"signature valid ({data.get('n_verified', 0)} references cryptographically tied to raw XML caches)"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="verify every reference against the source API")
     ap.add_argument("--strict", action="store_true", help="also require a Crossref DOI match")
@@ -125,8 +202,14 @@ def main() -> int:
         if not res["verified"]:
             failures.append((e["citekey"], res.get("reason", "unknown")))
 
+    verified_at = eu.now()
+    proj_dir = eu.project_root()
+    digest, prov_problems = compute_provenance_digest(records, verified_at, proj_dir)
+
     out = {
-        "verified_at": eu.now(),
+        "verified_at": verified_at,
+        "provenance_digest": digest,
+        "engine": "medpaper-ncbi-provenance-engine",
         "strict": args.strict,
         "n_entries": len(entries),
         "n_verified": sum(1 for r in records.values() if r["verified"]),

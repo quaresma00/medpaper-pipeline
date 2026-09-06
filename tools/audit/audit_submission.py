@@ -22,6 +22,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
@@ -318,6 +320,99 @@ def audit_bundle(project_dir: Path) -> dict:
             results["consistency_issues"].append(
                 "Residual horizontal rules (--- or ***) detected in 'supplementary_methods.md'. Section divisions must rely solely on markdown headings (##, ###)."
             )
+            results["overall_status"] = "ACTION_REQUIRED"
+
+    # 10. Deep Literature Authenticity & Cryptographic Provenance Audit (Anti-Fabrication Guard)
+    refs_dir = project_dir / "06_refs"
+    ver_path = refs_dir / "verified.json"
+    lib_path = refs_dir / "library.json"
+
+    # 10.1 Detect rogue bypass or tampering scripts in project/ or workspace
+    try:
+        from tools.wfcore.checks.refs import detect_bypass_scripts, verify_cache_evidence
+        suspicious_scripts = detect_bypass_scripts(type("DummyCtx", (), {"root": ROOT, "project": project_dir})())
+        if suspicious_scripts:
+            results["consistency_issues"].append(
+                f"FATAL ACADEMIC INTEGRITY VIOLATION: Unauthorized bypass script(s) detected: {', '.join(suspicious_scripts)}. "
+                "Bypassing tools/pubmed/ to forge verified.json is strictly forbidden."
+            )
+            results["overall_status"] = "ACTION_REQUIRED"
+    except Exception as exc:
+        results["consistency_issues"].append(f"Bypass script detection error: {exc}")
+
+    # 10.2 Cryptographic signature check on verified.json
+    if ver_path.exists():
+        try:
+            ver_data = json.loads(ver_path.read_text(encoding="utf-8"))
+            from tools.pubmed.verify import verify_provenance_signature
+            sig_ok, sig_msg = verify_provenance_signature(ver_data, project_dir)
+            if not sig_ok:
+                results["consistency_issues"].append(
+                    f"FATAL INTEGRITY VIOLATION: verified.json signature verification failed: {sig_msg}. "
+                    "File has been tampered with or modified outside tools/pubmed/verify.py."
+                )
+                results["overall_status"] = "ACTION_REQUIRED"
+        except Exception as ve:
+            results["consistency_issues"].append(f"Error checking verified.json provenance signature: {ve}")
+            results["overall_status"] = "ACTION_REQUIRED"
+
+    # 10.3 Penetrating proof-of-retrieval check for every cited reference
+    if prose_text and ver_path.exists() and lib_path.exists():
+        try:
+            ver_data = json.loads(ver_path.read_text(encoding="utf-8"))
+            lib_data = json.loads(lib_path.read_text(encoding="utf-8"))
+            ver_records = ver_data.get("records", {})
+            lib_entries = {e["citekey"]: e for e in lib_data.get("entries", []) if e.get("citekey")}
+
+            cited_keys = set()
+            for grp in re.findall(r"\[([^\]]*@[^\]]*)\]", prose_text):
+                cited_keys.update(re.findall(r"@([A-Za-z][\w:.#$%&+?<>~/-]*)", grp))
+            for single in re.findall(r"(?<!\w)@([A-Za-z][\w:.#$%&+?<>~/-]*)", prose_text):
+                cited_keys.add(single)
+
+            for ck in sorted(cited_keys):
+                v_rec = ver_records.get(ck)
+                l_rec = lib_entries.get(ck)
+                if not v_rec or not v_rec.get("verified"):
+                    results["consistency_issues"].append(f"Cited reference '@{ck}' is not verified in verified.json.")
+                    results["overall_status"] = "ACTION_REQUIRED"
+                    continue
+
+                cache_rel = v_rec.get("cache_file") or (l_rec or {}).get("cache_file")
+                if not cache_rel:
+                    results["consistency_issues"].append(f"Cited reference '@{ck}' lacks raw NCBI XML cache file.")
+                    results["overall_status"] = "ACTION_REQUIRED"
+                    continue
+
+                cache_file = project_dir / cache_rel
+                if not cache_file.exists() or cache_file.stat().st_size == 0:
+                    results["consistency_issues"].append(f"Cited reference '@{ck}' raw cache file '{cache_rel}' is missing or empty.")
+                    results["overall_status"] = "ACTION_REQUIRED"
+                    continue
+
+                pmid = str(v_rec.get("pmid") or (l_rec or {}).get("pmid") or "").strip()
+                doi = str(v_rec.get("doi") or (l_rec or {}).get("doi") or "").strip().lower()
+
+                if any(fake in doi for fake in ("fake", "dummy", "test", "example", "placeholder", "todo")):
+                    results["consistency_issues"].append(f"Fabricated/placeholder DOI detected in '@{ck}': {doi}")
+                    results["overall_status"] = "ACTION_REQUIRED"
+
+                if pmid:
+                    try:
+                        xml_txt = cache_file.read_text(encoding="utf-8", errors="replace")
+                        if f"<PMID>{pmid}</PMID>" not in xml_txt and f"<PMID Version=" not in xml_txt:
+                            root_xml = ET.fromstring(xml_txt)
+                            pmids_in_cache = {t.text.strip() for t in root_xml.findall(".//PMID") if t.text}
+                            if pmid not in pmids_in_cache:
+                                results["consistency_issues"].append(
+                                    f"ACADEMIC INTEGRITY VIOLATION: Cited reference '@{ck}' (PMID {pmid}) is absent from declared raw NCBI cache {cache_rel} (fabrication detected)."
+                                )
+                                results["overall_status"] = "ACTION_REQUIRED"
+                    except Exception as pe:
+                        results["consistency_issues"].append(f"Error parsing raw NCBI cache for '@{ck}': {pe}")
+                        results["overall_status"] = "ACTION_REQUIRED"
+        except Exception as e:
+            results["consistency_issues"].append(f"Error auditing literature authenticity: {e}")
             results["overall_status"] = "ACTION_REQUIRED"
 
     return results

@@ -6,8 +6,12 @@ verified.json with verified=true is treated as fabricated.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from . import Ctx, Result, check
 
@@ -37,14 +41,94 @@ def bib_keys(text: str) -> set[str]:
     return {k for _, k in BIB_ENTRY_RE.findall(text)}
 
 
-def _verified_map(ctx: Ctx) -> dict:
+def _verified_data(ctx: Ctx) -> dict:
     if not ctx.p(VER).exists():
         return {}
     try:
-        data = ctx.read_json(VER)
+        return ctx.read_json(VER)
     except Exception:  # noqa: BLE001
         return {}
+
+
+def _verified_map(ctx: Ctx) -> dict:
+    data = _verified_data(ctx)
     return data.get("records", data if isinstance(data, dict) else {})
+
+
+def _library_entries_map(ctx: Ctx) -> dict[str, dict]:
+    if not ctx.p(LIB).exists():
+        return {}
+    try:
+        data = ctx.read_json(LIB)
+        return {e["citekey"]: e for e in data.get("entries", []) if e.get("citekey")}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def detect_bypass_scripts(ctx: Ctx) -> list[str]:
+    """Detect unauthorized bypass or tampering scripts trying to forge verified.json."""
+    suspicious = []
+    root = ctx.root
+    candidates = []
+    try:
+        for p in root.glob("*.py"):
+            if p.name not in ("bootstrap.py",):
+                candidates.append(p)
+        for p in ctx.project.glob("**/*.py"):
+            candidates.append(p)
+    except Exception:
+        pass
+
+    tamper_patterns = [
+        re.compile(r'["\']verified["\']\s*:\s*True', re.I),
+        re.compile(r'verified\.json', re.I),
+        re.compile(r'["\']records["\']\s*\[.*?\]\s*=', re.I),
+    ]
+
+    for f in candidates:
+        if "tools" in f.parts or ".venv" in f.parts or "scratch" in f.parts:
+            continue
+        try:
+            txt = f.read_text(encoding="utf-8", errors="ignore")
+            matches = sum(1 for pat in tamper_patterns if pat.search(txt))
+            if matches >= 2 or ("verified.json" in txt and ("open(" in txt or "write_text" in txt)):
+                suspicious.append(str(f.relative_to(root) if root in f.parents else f.name))
+        except OSError:
+            pass
+
+    return suspicious
+
+
+def verify_cache_evidence(ctx: Ctx, citekey: str, ver_entry: dict, lib_entry: dict) -> list[str]:
+    """Validate that a citekey has a genuine NCBI XML cache file and matches the record."""
+    cache_rel = ver_entry.get("cache_file") or lib_entry.get("cache_file")
+    if not cache_rel:
+        return [f"@{citekey}: no 'cache_file' proof-of-retrieval recorded"]
+
+    cache_path = ctx.p(cache_rel)
+    if not cache_path.exists() or cache_path.stat().st_size == 0:
+        return [f"@{citekey}: raw NCBI cache file '{cache_rel}' is missing or empty on disk"]
+
+    pmid = str(ver_entry.get("pmid") or lib_entry.get("pmid") or "").strip()
+    doi = str(ver_entry.get("doi") or lib_entry.get("doi") or "").strip().lower()
+
+    # Check for obvious fabricated fake DOIs
+    if any(fake_word in doi for fake_word in ("fake", "dummy", "test", "example", "placeholder", "todo")):
+        return [f"@{citekey}: contains fabricated/placeholder DOI '{doi}'"]
+
+    # Parse raw XML cache to confirm PMID really exists inside the NCBI response
+    if pmid:
+        try:
+            xml_text = cache_path.read_text(encoding="utf-8", errors="replace")
+            if f"<PMID>{pmid}</PMID>" not in xml_text and f"<PMID Version=" not in xml_text:
+                root = ET.fromstring(xml_text)
+                pmids_in_cache = {t.text.strip() for t in root.findall(".//PMID") if t.text}
+                if pmid not in pmids_in_cache:
+                    return [f"@{citekey}: PMID {pmid} is absent from raw NCBI response {cache_rel} (fabricated record)"]
+        except Exception as exc:
+            return [f"@{citekey}: cannot parse raw NCBI cache {cache_rel}: {exc}"]
+
+    return []
 
 
 @check("citekeys_resolve")
@@ -54,6 +138,23 @@ def citekeys_resolve(ctx: Ctx) -> Result:
     present = [p for p in paths if ctx.p(p).exists()]
     if not present:
         return Result(False, "citekeys_resolve", "none of the target files exist: " + ", ".join(paths))
+
+    # 1. Anti-tampering guard: detect unauthorized bypass scripts in project or workspace
+    bypass_scripts = detect_bypass_scripts(ctx)
+    if bypass_scripts:
+        return Result(
+            False,
+            "citekeys_resolve",
+            f"FATAL ACADEMIC INTEGRITY VIOLATION: Unauthorized bypass script(s) detected: {', '.join(bypass_scripts)}. "
+            "Never bypass tools/pubmed/ or forge verified.json.",
+            [
+                "Delete any custom bypass scripts immediately.",
+                "To add legitimate literature: uv run python tools/pubmed/client.py search --query '...'",
+                "Then add real PMIDs: uv run python tools/pubmed/build_library.py --add-ids <PMID>",
+                "Then verify legitimately: uv run python tools/pubmed/verify.py",
+                "Then export: uv run python tools/pubmed/build_library.py --export",
+            ],
+        )
 
     used: dict[str, list[str]] = {}
     for rel in present:
@@ -69,7 +170,9 @@ def citekeys_resolve(ctx: Ctx) -> Result:
 
     have_bib = ctx.p(BIB).exists()
     known = bib_keys(ctx.read(BIB)) if have_bib else set()
+    raw_ver_data = _verified_data(ctx)
     ver = _verified_map(ctx)
+    lib_map = _library_entries_map(ctx)
 
     if not have_bib and allow_unverified:
         return Result(
@@ -79,27 +182,73 @@ def citekeys_resolve(ctx: Ctx) -> Result:
             severity="warn",
         )
 
+    # 2. Validate cryptographic provenance signature of verified.json
+    if raw_ver_data and not allow_unverified:
+        try:
+            sys.path.insert(0, str(ctx.root / "tools" / "pubmed"))
+            from verify import verify_provenance_signature
+            sig_ok, sig_reason = verify_provenance_signature(raw_ver_data, ctx.project)
+            if not sig_ok:
+                return Result(
+                    False,
+                    "citekeys_resolve",
+                    f"FATAL INTEGRITY VIOLATION: verified.json signature verification failed: {sig_reason}. "
+                    "File has been tampered with or modified outside tools/pubmed/verify.py.",
+                    [
+                        "Re-verify all entries with real NCBI API: uv run python tools/pubmed/verify.py",
+                        "Never edit verified.json by hand or via custom scripts.",
+                    ],
+                )
+        except Exception as e:
+            return Result(
+                False,
+                "citekeys_resolve",
+                f"Error validating verified.json provenance: {e}",
+            )
+
     unknown = sorted(k for k in used if k not in known)
     unverified = sorted(
         k for k in used
         if k in known and not (ver.get(k, {}) or {}).get("verified") is True
     )
+
+    # 3. Physical raw XML cache evidence check for each cited key
+    evidence_problems = []
+    if not allow_unverified:
+        for k in sorted(used.keys()):
+            v_rec = ver.get(k, {})
+            l_rec = lib_map.get(k, {})
+            errs = verify_cache_evidence(ctx, k, v_rec, l_rec)
+            evidence_problems.extend(errs)
+
     problems = []
     if unknown:
         problems.append(f"{len(unknown)} citekey(s) absent from refs.bib: " + ", ".join(unknown[:8]))
     if unverified and not allow_unverified:
         problems.append(f"{len(unverified)} citekey(s) not verified: " + ", ".join(unverified[:8]))
+    if evidence_problems:
+        problems.append(f"Physical proof-of-retrieval failure ({len(evidence_problems)} issue(s)): " + "; ".join(evidence_problems[:4]))
+
     if problems:
         return Result(
             False,
             "citekeys_resolve",
             "; ".join(problems),
             [
-                "Never invent a citekey. Add references with: python tools/pubmed/build_library.py",
-                "Then verify with: python tools/pubmed/verify.py",
+                "STRICT PROTOCOL FOR ADDING CITATIONS (ZERO-FABRICATION POLICY):",
+                "1. Search genuine PubMed records: uv run python tools/pubmed/client.py search --query '<term>'",
+                "2. Add real PubMed ID to library: uv run python tools/pubmed/build_library.py --add-ids <PMID>",
+                "3. Verify and sign: uv run python tools/pubmed/verify.py",
+                "4. Export bib: uv run python tools/pubmed/build_library.py --export",
+                "5. Cite the legitimate citekey in manuscript markdown.",
+                "NEVER invent citations, fake DOIs, or modify verified.json directly.",
             ],
         )
-    return Result(True, "citekeys_resolve", f"{len(used)} distinct citekey(s), all present in refs.bib and verified")
+    return Result(
+        True,
+        "citekeys_resolve",
+        f"{len(used)} distinct citekey(s), all present in refs.bib, verified, and tied to authentic NCBI XML payloads"
+    )
 
 
 @check("citation_count")
@@ -145,6 +294,17 @@ def refs_library(ctx: Ctx) -> Result:
         problems.append(f"{len(missing_id)} entry/entries with neither PMID nor DOI: " + ", ".join(missing_id[:6]))
 
     if ctx.spec.get("require_verified", True):
+        raw_ver_data = _verified_data(ctx)
+        if raw_ver_data:
+            try:
+                sys.path.insert(0, str(ctx.root / "tools" / "pubmed"))
+                from verify import verify_provenance_signature
+                sig_ok, sig_reason = verify_provenance_signature(raw_ver_data, ctx.project)
+                if not sig_ok:
+                    problems.append(f"verified.json signature invalid ({sig_reason}); tampering detected")
+            except Exception as e:
+                problems.append(f"error validating verified.json signature: {e}")
+
         ver = _verified_map(ctx)
         unver = [
             e.get("citekey", "?") for e in entries
@@ -152,6 +312,14 @@ def refs_library(ctx: Ctx) -> Result:
         ]
         if unver:
             problems.append(f"{len(unver)} entry/entries unverified: " + ", ".join(unver[:6]))
+
+        # Cache file existence check
+        missing_caches = [
+            e.get("citekey", "?") for e in entries
+            if not e.get("cache_file") or not ctx.p(e.get("cache_file", "")).exists()
+        ]
+        if missing_caches:
+            problems.append(f"{len(missing_caches)} entry/entries missing raw NCBI XML cache: " + ", ".join(missing_caches[:4]))
 
     dupes = _dupes([e.get("citekey") for e in entries])
     if dupes:

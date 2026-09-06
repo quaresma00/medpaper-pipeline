@@ -42,7 +42,18 @@ python tools/pubmed/build_library.py --export
 ## Hard rules
 - **No abstract, no entry.** A record without a retrievable abstract is removed from the
   library. Do not write a summary and call it the abstract.
-- Never invent, guess or "reconstruct" a citekey, PMID, DOI, title, journal or year.
+- **Strict Zero-Fabrication & Cryptographic Provenance (严禁虚假文献与旁路造假)**:
+  - NEVER invent, guess, or synthesize a citekey, PMID, DOI, title, journal, or year.
+  - NEVER write rogue bypass scripts to touch `verified.json` or force `"verified": true`.
+  - `06_refs/verified.json` is protected by a cryptographic provenance signature (`provenance_digest`)
+    bound to the SHA-256 hashes of raw NCBI XML cache files. Any manual or script-based tampering
+    causes instant cryptographic signature failure and a fatal gate block.
+  - Every cited reference is physically cross-checked against raw NCBI XML caches during gates and final audit.
+  - If a needed reference is missing, follow the ONLY legal protocol:
+    1. Search PubMed: `uv run python tools/pubmed/client.py search --query "..."`
+    2. Add real PMID: `uv run python tools/pubmed/build_library.py --add-ids <PMID>`
+    3. Verify & sign: `uv run python tools/pubmed/verify.py`
+    4. Re-export bib: `uv run python tools/pubmed/build_library.py --export`
 - Do not pad to hit the count. If genuine coverage is 42 papers, lower the target:
   `python tools/wf.py config set reflib_min 40`.
 - Retracted or expression-of-concern records must be flagged in `library.json` and not
