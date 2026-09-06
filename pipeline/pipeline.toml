@@ -508,10 +508,12 @@ outputs = [
   "08_submission/bundle/manifest.json",
   "08_submission/bundle/cover_letter.docx",
   "08_submission/bundle/manuscript.docx",
+  "08_submission/bundle/title_page.docx",
   "08_submission/bundle/AUDIT_REPORT.md"
 ]
 [[stage.gate]]
 check = "outputs_exist"
+optional = ["08_submission/bundle/title_page.docx"]
 [[stage.gate]]
 check = "bundle_complete"
 [[stage.gate]]
@@ -529,11 +531,14 @@ check = "temp_clean"
 # ------------------------------------------------------------------------------
 [freeform]
 globs = [
+  ".gitkeep",
+  "**/.gitkeep",
   "00_input/*",
   "02_data/raw/**",
   "02_data/derived/*",
   "03_analysis/code/*",
   "03_analysis/results/*.json",
+  "03_analysis/results/*.tsv",
   "04_tables/main/*.xlsx",
   "04_tables/supplementary/*.xlsx",
   "05_figures/code/*",
@@ -542,8 +547,11 @@ globs = [
   "06_refs/cache/**",
   "06_refs/fulltext/*",
   "06_refs/deepread/*.md",
+  "07_manuscript/manuscript_assembled.md",
   "07_manuscript/prepolish/*",
   "07_manuscript/polish_allowlist.tsv",
+  "08_submission/*.json",
+  "08_submission/*.md",
   "08_submission/cache/**",
   "08_submission/bundle/**",
 ]

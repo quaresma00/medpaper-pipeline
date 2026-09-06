@@ -60,16 +60,46 @@ def verify_docx_integrity(docx_path: Path) -> list[str]:
             if soft_brs:
                 problems.append(f"Unconverted manual soft line breaks (down-arrows ↓) found: {len(soft_brs)} in {docx_path.name}")
 
-            # Check for outlineLvl residues
-            outline_lvls = root.findall(f".//{{{W_NS}}}outlineLvl")
-            if outline_lvls:
-                problems.append(f"Paragraph outline levels (outlineLvl) found: {len(outline_lvls)} in {docx_path.name}")
+            # 1. Zero-tolerance check for black square controls across all XML streams in the docx
+            for name in namelist:
+                if name.endswith(".xml"):
+                    txt = z.read(name).decode("utf-8", errors="ignore")
+                    for tag, desc in (
+                        ("keepNext", "keep-with-next pagination"),
+                        ("keepLines", "keep-lines pagination"),
+                        ("pageBreakBefore", "page-break-before pagination"),
+                    ):
+                        cnt = txt.count(tag)
+                        if cnt > 0:
+                            problems.append(
+                                f"Forbidden {desc} attribute '{tag}' (causes black square margin marks) found: {cnt} in {name} of {docx_path.name}"
+                            )
 
-            # Check for horizontal rules (---)
+                    # 2. Zero-tolerance check for outlineLvl across all XML streams
+                    cnt_ol = txt.count("outlineLvl")
+                    if cnt_ol > 0:
+                        problems.append(
+                            f"Forbidden outline level attribute 'outlineLvl' (causes folding arrows) found: {cnt_ol} in {name} of {docx_path.name}"
+                        )
+
+            # 3. Check for unflattened native Heading styles in document.xml
+            for p in paragraphs:
+                ppr = p.find(f"{{{W_NS}}}pPr")
+                if ppr is not None:
+                    pstyle = ppr.find(f"{{{W_NS}}}pStyle")
+                    if pstyle is not None:
+                        val = pstyle.get(f"{{{W_NS}}}val", "")
+                        if re.match(r"(?i)^heading\s*\d+$", val) or re.match(r"^Heading\d+$", val):
+                            problems.append(
+                                f"Unflattened native heading style '{val}' found in {docx_path.name}; all headings must be mapped to flat 'SectionHeading' / 'SubsectionHeading'"
+                            )
+                            break
+
+            # 4. Check for horizontal rules (---)
             if 'o:hr="t"' in doc_xml.decode("utf-8", errors="ignore"):
                 problems.append(f"Residual horizontal dividing lines (---) found: {docx_path.name}")
 
-            # Check for duplicate Figure Legends heading in manuscript.docx
+            # 5. Check for duplicate Figure Legends heading in manuscript.docx
             if docx_path.name == "manuscript.docx":
                 legend_headings = []
                 for p in paragraphs:
@@ -108,6 +138,8 @@ def audit_bundle(project_dir: Path) -> dict:
 
     # 1. Essential files existence and physical integrity check
     core_files = ["manuscript.docx", "cover_letter.docx", "SUBMISSION_CHECKLIST.md", "manifest.json"]
+    if (manuscript_dir / "title_page.md").exists():
+        core_files.append("title_page.docx")
     for f in core_files:
         p = bundle_dir / f
         if not p.exists():
@@ -120,6 +152,15 @@ def audit_bundle(project_dir: Path) -> dict:
                 if doc_errors:
                     results["corrupted_files"].extend(doc_errors)
                     results["overall_status"] = "ACTION_REQUIRED"
+
+    # Also thoroughly audit any additional DOCX in bundle (e.g. supplementary_materials.docx)
+    for extra_docx in bundle_dir.glob("*.docx"):
+        if extra_docx.name not in core_files:
+            results["files_checked"].append(extra_docx.name)
+            doc_errors = verify_docx_integrity(extra_docx)
+            if doc_errors:
+                results["corrupted_files"].extend(doc_errors)
+                results["overall_status"] = "ACTION_REQUIRED"
 
     # 2. Manifest structural validation
     manifest_file = bundle_dir / "manifest.json"

@@ -3,7 +3,7 @@ render_package.py - Assemble and render publication-grade Word documents for the
 
 Handles:
 1. Dynamically parsing target journal guidelines (font size, line spacing) from guidelines_extract.md.
-2. Generating a matched medical reference docx (Times New Roman, pure black, no link underlines).
+2. Generating a matched medical reference docx (Times New Roman, pure black, no link underlines, zero outlines).
 3. Counting actual unique citations referenced in the text and auto-calibrating Title Page reference count.
 4. Assembling the complete manuscript:
    - title_page.md (calibrated reference count, clean metadata)
@@ -12,11 +12,15 @@ Handles:
    - # References heading with ::: {#refs} ::: anchor so Pandoc citeproc places bibliography BEFORE Figure Legends
    - # Figure Legends (stripped of Abbreviations, visual guide only, strictly at manuscript end)
 5. Compiling manuscript.docx with pandoc citeproc against refs.bib and journal CSL.
-6. Post-processing docx:
-   - Flattening all hyperlinks to plain text runs (eliminates blue color, underlines, and reveals hidden breaks)
+6. Compiling the complete submission suite (manuscript.docx, title_page.docx, cover_letter.docx, supplementary_materials.docx).
+7. Deep WordprocessingML purification pipeline:
+   - Flattening all hyperlinks to plain text runs (eliminates blue color, underlines, and un-nests breaks)
    - Converting all manual line breaks (<w:br/> without page/column type) to genuine hard paragraphs (<w:p>)
-   - Removing all outlineLvl and numPr attributes to eliminate black folding boxes
-7. Compiling cover_letter.docx and supplementary_materials.docx with identical typography and cleaning.
+   - Eliminating black square margin artifacts: keepNext, keepLines, and pageBreakBefore strictly cleared (0 occurrences)
+   - Eliminating folding triangles: outlineLvl strictly cleared (0 occurrences) and all headings mapped and flattened
+     to plain body-level SectionHeading / SubsectionHeading based on Normal (impossible to collapse)
+   - Removing residual markdown horizontal rules (---, ***) and VML dividers
+   - Preserving styles.xml native numbering tables to prevent 'Style 1' / '样式1' errors
 """
 
 from __future__ import annotations
@@ -234,12 +238,14 @@ def clean_legend_block(legend_text: str) -> str:
     return "\n\n".join(cleaned_blocks)
 
 
-def purify_docx_xml(root: ET.Element) -> bool:
+def purify_docx_xml(root: ET.Element, is_document_stream: bool = True) -> bool:
     """Deeply purify docx OpenXML:
 
     1. Flatten all hyperlinks to plain text runs (eliminates blue color, underlines, and un-nests breaks)
-    2. Split soft line breaks into hard paragraphs
-    3. Remove outlineLvl and numPr from paragraphs
+    2. Strip all outlineLvl, keepNext, keepLines, and pageBreakBefore attributes across all pPr
+    3. Map all Heading styles to flat body-level SectionHeading / SubsectionHeading
+    4. Split manual line breaks into hard paragraphs
+    5. Remove residual horizontal dividing lines (--- or ***)
     """
     ET.register_namespace('w', W_NS)
     modified = False
@@ -265,14 +271,50 @@ def purify_docx_xml(root: ET.Element) -> bool:
                     p.insert(idx, child)
                     idx += 1
 
-    # 2. Remove outlineLvl and numPr from paragraph properties
-    for ppr in root.findall(f".//{{{W_NS}}}pPr"):
-        for tag in ("outlineLvl", "numPr"):
-            for node in ppr.findall(f"{{{W_NS}}}{tag}"):
-                ppr.remove(node)
+    # 2. Strip all pagination and outline control attributes (keepNext, keepLines, pageBreakBefore, outlineLvl)
+    # This completely eliminates black square margin indicators and folding triangles.
+    for parent in list(root.iter()):
+        for tag in ("keepNext", "keepLines", "pageBreakBefore", "outlineLvl"):
+            for node in [c for c in list(parent) if c.tag == f"{{{W_NS}}}{tag}"]:
+                parent.remove(node)
                 modified = True
 
-    # 3. Split manual line breaks (<w:br/> not page/column) into genuine hard paragraphs (<w:p>)
+    # 3. If document stream, map all native Heading styles to flat body-level SectionHeading / SubsectionHeading
+    if is_document_stream:
+        for p in root.findall(f".//{{{W_NS}}}p"):
+            pPr = p.find(f"{{{W_NS}}}pPr")
+            if pPr is not None:
+                pstyle = pPr.find(f"{{{W_NS}}}pStyle")
+                if pstyle is not None:
+                    val = pstyle.get(f"{{{W_NS}}}val", "")
+                    if re.match(r"(?i)^heading\s*1$", val) or val in ("Heading1", "Title"):
+                        pstyle.set(f"{{{W_NS}}}val", "SectionHeading")
+                        for r in p.findall(f".//{{{W_NS}}}r"):
+                            rPr = r.find(f"{{{W_NS}}}rPr")
+                            if rPr is None:
+                                rPr = ET.SubElement(r, f"{{{W_NS}}}rPr")
+                            if rPr.find(f"{{{W_NS}}}b") is None:
+                                ET.SubElement(rPr, f"{{{W_NS}}}b")
+                            color = rPr.find(f"{{{W_NS}}}color")
+                            if color is None:
+                                color = ET.SubElement(rPr, f"{{{W_NS}}}color")
+                            color.set(f"{{{W_NS}}}val", "000000")
+                        modified = True
+                    elif re.match(r"(?i)^heading\s*[2-9]$", val) or re.match(r"^Heading[2-9]$", val) or val == "Subtitle":
+                        pstyle.set(f"{{{W_NS}}}val", "SubsectionHeading")
+                        for r in p.findall(f".//{{{W_NS}}}r"):
+                            rPr = r.find(f"{{{W_NS}}}rPr")
+                            if rPr is None:
+                                rPr = ET.SubElement(r, f"{{{W_NS}}}rPr")
+                            if rPr.find(f"{{{W_NS}}}b") is None:
+                                ET.SubElement(rPr, f"{{{W_NS}}}b")
+                            color = rPr.find(f"{{{W_NS}}}color")
+                            if color is None:
+                                color = ET.SubElement(rPr, f"{{{W_NS}}}color")
+                            color.set(f"{{{W_NS}}}val", "000000")
+                        modified = True
+
+    # 4. Split manual line breaks (<w:br/> not page/column) into genuine hard paragraphs (<w:p>)
     for parent in root.iter():
         p_list = [c for c in list(parent) if c.tag == f"{{{W_NS}}}p"]
         if not p_list:
@@ -338,7 +380,7 @@ def purify_docx_xml(root: ET.Element) -> bool:
                     parent.insert(idx + offset, np)
                 modified = True
 
-    # 4. Remove residual horizontal dividing lines (e.g. from markdown --- or ***)
+    # 5. Remove residual horizontal dividing lines (e.g. from markdown --- or ***)
     for parent in list(root.iter()):
         p_list = [c for c in list(parent) if c.tag == f"{{{W_NS}}}p"]
         for p in p_list:
@@ -351,12 +393,97 @@ def purify_docx_xml(root: ET.Element) -> bool:
     return modified
 
 
-def post_process_docx(docx_path: Path) -> None:
-    """Purify generated docx file in-place: flatten hyperlinks, eliminate soft breaks, remove outlines.
+def purify_styles_xml(root: ET.Element) -> bool:
+    """Purify styles.xml:
+    1. Strip all keepNext, keepLines, pageBreakBefore, and outlineLvl across all styles.
+    2. Ensure SectionHeading and SubsectionHeading are defined (based on Normal, zero outline).
+    3. Strictly preserve numPr for list paragraphs to prevent Style 1 / 样式1 corruption.
+    """
+    ET.register_namespace('w', W_NS)
+    modified = False
 
-    STRICTLY limits XML purification to the document body flow (word/document.xml and headers/footers).
-    NEVER touch word/styles.xml, word/settings.xml, or fontTable.xml to prevent damaging the native
-    Word style mapping table ('Style 1' / '样式1' error).
+    # 1. Strip pagination and outline control attributes across all styles & docDefaults
+    for parent in list(root.iter()):
+        for tag in ("keepNext", "keepLines", "pageBreakBefore", "outlineLvl"):
+            for node in [c for c in list(parent) if c.tag == f"{{{W_NS}}}{tag}"]:
+                parent.remove(node)
+                modified = True
+
+    # 2. Ensure SectionHeading and SubsectionHeading exist
+    existing_ids = {s.attrib.get(f"{{{W_NS}}}styleId", "") for s in root.findall(f".//{{{W_NS}}}style")}
+    if "SectionHeading" not in existing_ids:
+        sh = ET.SubElement(root, f"{{{W_NS}}}style", {
+            f"{{{W_NS}}}type": "paragraph",
+            f"{{{W_NS}}}styleId": "SectionHeading",
+        })
+        ET.SubElement(sh, f"{{{W_NS}}}name", {f"{{{W_NS}}}val": "SectionHeading"})
+        ET.SubElement(sh, f"{{{W_NS}}}basedOn", {f"{{{W_NS}}}val": "Normal"})
+        ET.SubElement(sh, f"{{{W_NS}}}next", {f"{{{W_NS}}}val": "Normal"})
+        ET.SubElement(sh, f"{{{W_NS}}}uiPriority", {f"{{{W_NS}}}val": "1"})
+        ET.SubElement(sh, f"{{{W_NS}}}qFormat")
+        ppr_el = ET.SubElement(sh, f"{{{W_NS}}}pPr")
+        ET.SubElement(ppr_el, f"{{{W_NS}}}spacing", {
+            f"{{{W_NS}}}before": "240",
+            f"{{{W_NS}}}after": "80",
+            f"{{{W_NS}}}line": "480",
+            f"{{{W_NS}}}lineRule": "auto",
+        })
+        rpr_el = ET.SubElement(sh, f"{{{W_NS}}}rPr")
+        fonts_el = ET.SubElement(rpr_el, f"{{{W_NS}}}rFonts", {
+            f"{{{W_NS}}}ascii": "Times New Roman",
+            f"{{{W_NS}}}hAnsi": "Times New Roman",
+            f"{{{W_NS}}}eastAsia": "Times New Roman",
+            f"{{{W_NS}}}cs": "Times New Roman",
+        })
+        ET.SubElement(rpr_el, f"{{{W_NS}}}b")
+        ET.SubElement(rpr_el, f"{{{W_NS}}}bCs")
+        ET.SubElement(rpr_el, f"{{{W_NS}}}color", {f"{{{W_NS}}}val": "000000"})
+        ET.SubElement(rpr_el, f"{{{W_NS}}}sz", {f"{{{W_NS}}}val": "28"})
+        ET.SubElement(rpr_el, f"{{{W_NS}}}szCs", {f"{{{W_NS}}}val": "28"})
+        modified = True
+
+    if "SubsectionHeading" not in existing_ids:
+        ssh = ET.SubElement(root, f"{{{W_NS}}}style", {
+            f"{{{W_NS}}}type": "paragraph",
+            f"{{{W_NS}}}styleId": "SubsectionHeading",
+        })
+        ET.SubElement(ssh, f"{{{W_NS}}}name", {f"{{{W_NS}}}val": "SubsectionHeading"})
+        ET.SubElement(ssh, f"{{{W_NS}}}basedOn", {f"{{{W_NS}}}val": "Normal"})
+        ET.SubElement(ssh, f"{{{W_NS}}}next", {f"{{{W_NS}}}val": "Normal"})
+        ET.SubElement(ssh, f"{{{W_NS}}}uiPriority", {f"{{{W_NS}}}val": "2"})
+        ET.SubElement(ssh, f"{{{W_NS}}}qFormat")
+        ppr_el = ET.SubElement(ssh, f"{{{W_NS}}}pPr")
+        ET.SubElement(ppr_el, f"{{{W_NS}}}spacing", {
+            f"{{{W_NS}}}before": "180",
+            f"{{{W_NS}}}after": "60",
+            f"{{{W_NS}}}line": "480",
+            f"{{{W_NS}}}lineRule": "auto",
+        })
+        rpr_el = ET.SubElement(ssh, f"{{{W_NS}}}rPr")
+        fonts_el = ET.SubElement(rpr_el, f"{{{W_NS}}}rFonts", {
+            f"{{{W_NS}}}ascii": "Times New Roman",
+            f"{{{W_NS}}}hAnsi": "Times New Roman",
+            f"{{{W_NS}}}eastAsia": "Times New Roman",
+            f"{{{W_NS}}}cs": "Times New Roman",
+        })
+        ET.SubElement(rpr_el, f"{{{W_NS}}}b")
+        ET.SubElement(rpr_el, f"{{{W_NS}}}bCs")
+        ET.SubElement(rpr_el, f"{{{W_NS}}}color", {f"{{{W_NS}}}val": "000000"})
+        ET.SubElement(rpr_el, f"{{{W_NS}}}sz", {f"{{{W_NS}}}val": "24"})
+        ET.SubElement(rpr_el, f"{{{W_NS}}}szCs", {f"{{{W_NS}}}val": "24"})
+        modified = True
+
+    return modified
+
+
+def post_process_docx(docx_path: Path) -> None:
+    """Purify generated docx file in-place:
+    - Flatten hyperlinks to plain text
+    - Eliminate soft breaks (down arrows) and convert to hard paragraphs
+    - Remove all outlineLvl attributes (0 occurrences)
+    - Remove all keepNext, keepLines, pageBreakBefore attributes (0 occurrences, no black squares)
+    - Map all Heading styles to flat body-level SectionHeading / SubsectionHeading
+    - Ensure styles.xml retains perfect integrity (no 'Style 1' error)
     """
     if not docx_path.exists():
         return
@@ -367,21 +494,50 @@ def post_process_docx(docx_path: Path) -> None:
         with zipfile.ZipFile(temp_buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
             for item in zin.infolist():
                 content = zin.read(item.filename)
-                # Strictly isolate body text streams; leave styles.xml and settings intact
-                is_body_stream = item.filename in ("word/document.xml",) or bool(
-                    re.match(r"^word/(header|footer|footnotes|endnotes)\d*\.xml$", item.filename)
-                )
-                if is_body_stream:
+                if item.filename == "word/styles.xml":
                     try:
                         root = ET.fromstring(content)
-                        if purify_docx_xml(root):
+                        if purify_styles_xml(root):
+                            content = ET.tostring(root, encoding="utf-8")
+                    except Exception:
+                        pass
+                elif item.filename in ("word/document.xml",) or bool(
+                    re.match(r"^word/(header|footer|footnotes|endnotes)\d*\.xml$", item.filename)
+                ):
+                    try:
+                        root = ET.fromstring(content)
+                        if purify_docx_xml(root, is_document_stream=(item.filename == "word/document.xml")):
                             content = ET.tostring(root, encoding="utf-8")
                     except Exception:
                         content = re.sub(rb'<w:br(?:\s*/>|\s+w:type="textWrapping"\s*/>)', b'', content)
+                elif item.filename.endswith(".xml"):
+                    # For any other XML in package, strip pagination and outline control attributes
+                    try:
+                        root = ET.fromstring(content)
+                        modified = False
+                        for parent in list(root.iter()):
+                            for tag in ("keepNext", "keepLines", "pageBreakBefore", "outlineLvl"):
+                                for node in [c for c in list(parent) if c.tag == f"{{{W_NS}}}{tag}"]:
+                                    parent.remove(node)
+                                    modified = True
+                        if modified:
+                            content = ET.tostring(root, encoding="utf-8")
+                    except Exception:
+                        pass
 
                 zout.writestr(item, content)
 
     docx_path.write_bytes(temp_buffer.getvalue())
+
+    # Self-validation assertion: verify 0 occurrences of black-square and folding attributes
+    with zipfile.ZipFile(docx_path, 'r') as z:
+        for n in z.namelist():
+            if n.endswith(".xml"):
+                txt = z.read(n).decode("utf-8", errors="ignore")
+                for attr in ("keepNext", "keepLines", "pageBreakBefore", "outlineLvl"):
+                    cnt = txt.count(attr)
+                    if cnt > 0:
+                        raise ValueError(f"DOCX post-processing leak in {docx_path.name}: {n} retains {cnt} occurrences of '{attr}'")
 
 
 def assemble_manuscript_md(project_dir: Path) -> Path:
@@ -493,7 +649,27 @@ def render_all(project_dir: Path, csl_path: Path | None = None) -> int:
     post_process_docx(manuscript_docx)
     print(f"Rendered & purified (no soft arrows, no outlines, plain hyperlinks): {manuscript_docx}")
 
-    # 4. Render cover_letter.docx
+    # 4. Render title_page.docx (standalone for journals requiring detached front matter)
+    title_page_md = project_dir / "07_manuscript" / "title_page.md"
+    if title_page_md.exists():
+        tp_raw = title_page_md.read_text(encoding="utf-8", errors="ignore")
+        real_refs = count_actual_citations(project_dir)
+        tp_text = calibrate_title_page_refcount(tp_raw, real_refs)
+        tp_text = clean_markdown_soft_breaks(sanitize_latex_math_and_dollars(tp_text))
+        temp_tp_md = cache_dir / "clean_title_page.md"
+        temp_tp_md.write_text(tp_text, encoding="utf-8")
+
+        title_page_docx = bundle_dir / "title_page.docx"
+        cmd_tp = [
+            "pandoc", str(temp_tp_md),
+            f"--reference-doc={med_ref_docx}",
+            "-o", str(title_page_docx),
+        ]
+        subprocess.run(cmd_tp, check=True)
+        post_process_docx(title_page_docx)
+        print(f"Rendered & purified: {title_page_docx}")
+
+    # 5. Render cover_letter.docx
     cover_letter_md = bundle_dir / "cover_letter.md"
     if not cover_letter_md.exists():
         cover_letter_md = project_dir / "08_submission" / "cover_letter.md"
@@ -513,7 +689,7 @@ def render_all(project_dir: Path, csl_path: Path | None = None) -> int:
         post_process_docx(cover_letter_docx)
         print(f"Rendered & purified: {cover_letter_docx}")
 
-    # 5. Render supplementary_materials.docx
+    # 6. Render supplementary_materials.docx
     supp_methods_md = project_dir / "07_manuscript" / "supplementary_methods.md"
     if supp_methods_md.exists():
         supp_raw = supp_methods_md.read_text(encoding="utf-8", errors="ignore")

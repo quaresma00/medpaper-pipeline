@@ -35,10 +35,15 @@ and refresh `project/07_manuscript/title_page.md` and `project/07_manuscript/sta
      ensures each legend conforms to the 4-element medical standard (80–150 words, concise bold title,
      panel guide, statistical markers, alphabetical abbreviations, without bloated methods text),
      and appends the `# Figure Legends` section directly after References inside `manuscript.docx`.
-   - **Compiles Word documents**:
+   - **Compiles full Word document suite**:
      - `project/08_submission/bundle/manuscript.docx`
+     - `project/08_submission/bundle/title_page.docx` (standalone front matter for journals requiring detached title pages)
      - `project/08_submission/bundle/cover_letter.docx`
      - `project/08_submission/bundle/supplementary_materials.docx` (if supplementary methods or files exist)
+   - **Deep WordprocessingML purification pipeline**:
+     - **Zero black square marks**: Control attributes causing black margin squares (`keepNext`, `keepLines`, `pageBreakBefore`) are strictly eliminated across all XML streams (0 occurrences).
+     - **Zero folding triangles**: Outline levels (`outlineLvl`) are strictly eliminated (0 occurrences) and all headings are mapped and flattened to body-level `SectionHeading` / `SubsectionHeading` (based on Normal), removing all folding triangles in Word so the text cannot be collapsed.
+     - **Pure typography**: Times New Roman, pure black (#000000), un-nested hyperlinks, zero soft line breaks (down-arrows ↓).
 4. Copy in the display items in the required formats: figures at the required resolution
    and colour mode (TIFF masters from `05_figures/out/`), tables as the journal wants them
    (editable tables in manuscript file or separate supplementary files).
@@ -96,6 +101,7 @@ and refresh `project/07_manuscript/title_page.md` and `project/07_manuscript/sta
 
 ## Outputs
 - `08_submission/bundle/manuscript.docx`
+- `08_submission/bundle/title_page.docx`
 - `08_submission/bundle/cover_letter.docx`
 - `08_submission/bundle/manifest.json`
 - `08_submission/bundle/SUBMISSION_CHECKLIST.md`

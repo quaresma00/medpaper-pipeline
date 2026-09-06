@@ -20,8 +20,17 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
-NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+W_URI = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+NS = {"w": W_URI}
+W_NS = f"{{{W_URI}}}"
+
+ET.register_namespace("w", W_URI)
+ET.register_namespace("r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships")
+ET.register_namespace("m", "http://schemas.openxmlformats.org/officeDocument/2006/math")
+ET.register_namespace("v", "urn:schemas-microsoft-com:vml")
+ET.register_namespace("wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing")
+ET.register_namespace("a", "http://schemas.openxmlformats.org/drawingml/2006/main")
+ET.register_namespace("pic", "http://schemas.openxmlformats.org/drawingml/2006/picture")
 
 
 def qn(tag: str) -> str:
@@ -145,19 +154,84 @@ def modify_styles_xml(
                     color = ET.SubElement(rpr, qn("color"))
                 clean_color_to_black(color)
 
-    # Remove outlineLvl from all styles, and remove numPr from heading/title styles
-    # NEVER remove numPr from List Paragraph or bullet styles, which damages the native Word style map
+    # Remove outlineLvl and pagination control attributes (keepNext, keepLines, pageBreakBefore)
+    # from all styles to completely eliminate black square marks and folding arrows.
+    # NEVER remove numPr from List Paragraph or bullet styles, which damages the native Word style map.
     for style in root.findall(".//w:style", NS):
         sid = style.attrib.get(qn("styleId"), "")
         ppr = style.find("w:pPr", NS)
         if ppr is not None:
-            # Clear outlineLvl from all styles to prevent fold arrows / black boxes
-            for node in ppr.findall("w:outlineLvl", NS):
-                ppr.remove(node)
+            for tag in ("outlineLvl", "keepNext", "keepLines", "pageBreakBefore"):
+                for node in ppr.findall(f"w:{tag}", NS):
+                    ppr.remove(node)
             # Only strip numPr from heading, title, normal, and body styles to prevent accidental numbered headings
             if "Heading" in sid or sid in ("Title", "Subtitle", "Normal", "BodyText"):
                 for node in ppr.findall("w:numPr", NS):
                     ppr.remove(node)
+
+    # Ensure all paragraph properties across the entire styles.xml (e.g. docDefaults) have zero pagination/outline controls
+    for ppr in root.findall(".//w:pPr", NS):
+        for tag in ("outlineLvl", "keepNext", "keepLines", "pageBreakBefore"):
+            for node in ppr.findall(f"w:{tag}", NS):
+                ppr.remove(node)
+
+    # Define SectionHeading and SubsectionHeading styles (based on Normal, zero outline, zero fold arrows)
+    existing_ids = {s.attrib.get(qn("styleId"), "") for s in root.findall(".//w:style", NS)}
+    if "SectionHeading" not in existing_ids:
+        sh = ET.SubElement(root, qn("style"), {
+            qn("type"): "paragraph",
+            qn("styleId"): "SectionHeading",
+        })
+        ET.SubElement(sh, qn("name"), {qn("val"): "SectionHeading"})
+        ET.SubElement(sh, qn("basedOn"), {qn("val"): "Normal"})
+        ET.SubElement(sh, qn("next"), {qn("val"): "Normal"})
+        ET.SubElement(sh, qn("uiPriority"), {qn("val"): "1"})
+        ET.SubElement(sh, qn("qFormat"))
+        ppr_el = ET.SubElement(sh, qn("pPr"))
+        ET.SubElement(ppr_el, qn("spacing"), {
+            qn("before"): "240",
+            qn("after"): "80",
+            qn("line"): spacing_val,
+            qn("lineRule"): "auto",
+        })
+        rpr_el = ET.SubElement(sh, qn("rPr"))
+        fonts_el = ET.SubElement(rpr_el, qn("rFonts"))
+        clean_font(fonts_el, font_name)
+        ET.SubElement(rpr_el, qn("b"))
+        ET.SubElement(rpr_el, qn("bCs"))
+        color_el = ET.SubElement(rpr_el, qn("color"))
+        clean_color_to_black(color_el)
+        h1_sz = str(int((body_size_pt + 2) * 2))
+        ET.SubElement(rpr_el, qn("sz"), {qn("val"): h1_sz})
+        ET.SubElement(rpr_el, qn("szCs"), {qn("val"): h1_sz})
+
+    if "SubsectionHeading" not in existing_ids:
+        ssh = ET.SubElement(root, qn("style"), {
+            qn("type"): "paragraph",
+            qn("styleId"): "SubsectionHeading",
+        })
+        ET.SubElement(ssh, qn("name"), {qn("val"): "SubsectionHeading"})
+        ET.SubElement(ssh, qn("basedOn"), {qn("val"): "Normal"})
+        ET.SubElement(ssh, qn("next"), {qn("val"): "Normal"})
+        ET.SubElement(ssh, qn("uiPriority"), {qn("val"): "2"})
+        ET.SubElement(ssh, qn("qFormat"))
+        ppr_el = ET.SubElement(ssh, qn("pPr"))
+        ET.SubElement(ppr_el, qn("spacing"), {
+            qn("before"): "180",
+            qn("after"): "60",
+            qn("line"): spacing_val,
+            qn("lineRule"): "auto",
+        })
+        rpr_el = ET.SubElement(ssh, qn("rPr"))
+        fonts_el = ET.SubElement(rpr_el, qn("rFonts"))
+        clean_font(fonts_el, font_name)
+        ET.SubElement(rpr_el, qn("b"))
+        ET.SubElement(rpr_el, qn("bCs"))
+        color_el = ET.SubElement(rpr_el, qn("color"))
+        clean_color_to_black(color_el)
+        h2_sz = str(int(body_size_pt * 2))
+        ET.SubElement(rpr_el, qn("sz"), {qn("val"): h2_sz})
+        ET.SubElement(rpr_el, qn("szCs"), {qn("val"): h2_sz})
 
     return ET.tostring(root, encoding="utf-8")
 
