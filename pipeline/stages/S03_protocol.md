@@ -22,8 +22,12 @@ pre-specified rather than fitted to whatever happened to be significant.
 3. Write `project/02_data/acquisition_plan.md` with exactly these headings:
    `Source`, `Access route`, `Licence and ethics`, `Exact retrieval steps`,
    `Expected shape`, `Known limitations`.
-   `Exact retrieval steps` must be reproducible commands or a numbered manual procedure
-   with URLs and version/release identifiers, not "download the dataset".
+   - `Exact retrieval steps`: must be reproducible commands or a numbered script procedure
+     with URLs, release tags, API pagination exhaustion loops (handling offset/cursor/page),
+     and visible download progress (tqdm / chunk logging). Never "download a sample" or single-page queries.
+   - `Expected shape`: state the expected row count (total cohort census) or expected range,
+     and declare whether this is a `FULL_CENSUS` (default) or `APPROVED_SAMPLING`. Unapproved
+     arbitrary truncation is strictly prohibited by pipeline invariant.
 4. If the data requires credentials, an application, or an IRB approval the user has not
    mentioned, raise it now.
 

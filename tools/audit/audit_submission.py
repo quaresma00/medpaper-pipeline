@@ -415,6 +415,62 @@ def audit_bundle(project_dir: Path) -> dict:
             results["consistency_issues"].append(f"Error auditing literature authenticity: {e}")
             results["overall_status"] = "ACTION_REQUIRED"
 
+    # 11. Data Acquisition Integrity & Anti-Truncation Audit
+    try:
+        from tools.wfcore.checks.data_integrity import scan_code_for_truncation, count_file_physical_rows
+        # 11.1 Scan data code for rogue truncation
+        code_files = []
+        for d in (project_dir / "02_data", project_dir / "03_analysis" / "code"):
+            if d.exists():
+                for ext in ("*.py", "*.R", "*.sh"):
+                    code_files.extend(d.rglob(ext))
+        for p in project_dir.glob("*.py"):
+            if p.is_file() and p.name not in ("test_", "conftest.py"):
+                code_files.append(p)
+
+        for cf in sorted(set(code_files)):
+            try:
+                rel_cf = cf.relative_to(project_dir).as_posix()
+            except ValueError:
+                rel_cf = cf.as_posix()
+            if rel_cf.startswith("temp/") or "/temp/" in rel_cf or ".venv/" in rel_cf:
+                continue
+            trunc_issues = scan_code_for_truncation(cf)
+            if trunc_issues:
+                results["consistency_issues"].extend([
+                    f"DATA TRUNCATION VIOLATION: {iss}" for iss in trunc_issues
+                ])
+                results["overall_status"] = "ACTION_REQUIRED"
+
+        # 11.2 Reconcile data_census.json vs dataset_summary.json vs physical disk
+        census_path = project_dir / "02_data" / "data_census.json"
+        summary_path = project_dir / "03_analysis" / "results" / "dataset_summary.json"
+        if census_path.exists() and summary_path.exists():
+            c_data = json.loads(census_path.read_text(encoding="utf-8"))
+            s_data = json.loads(summary_path.read_text(encoding="utf-8"))
+            c_rows = c_data.get("actual_raw_rows", 0)
+            s_rows = s_data.get("n_rows", 0)
+            if c_rows != s_rows:
+                results["consistency_issues"].append(
+                    f"DATA RECONCILIATION MISMATCH: data_census.json reports {c_rows} rows, "
+                    f"but dataset_summary.json reports {s_rows} rows (unexplained discrepancy)."
+                )
+                results["overall_status"] = "ACTION_REQUIRED"
+
+            # Physical disk row check
+            for rf in (project_dir / "02_data" / "raw").rglob("*"):
+                if rf.is_file() and rf.name != ".gitkeep":
+                    phys_cnt = count_file_physical_rows(rf)
+                    if phys_cnt is not None and phys_cnt < c_rows * 0.9:
+                        results["consistency_issues"].append(
+                            f"PHYSICAL DATA AUDIT FAILURE: Physical file '{rf.name}' only contains {phys_cnt} rows on disk, "
+                            f"while data_census.json claims {c_rows} rows (physical data truncation)."
+                        )
+                        results["overall_status"] = "ACTION_REQUIRED"
+    except Exception as de:
+        results["consistency_issues"].append(f"Error auditing data acquisition integrity: {de}")
+        results["overall_status"] = "ACTION_REQUIRED"
+
     return results
 
 

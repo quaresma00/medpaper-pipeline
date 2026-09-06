@@ -48,6 +48,7 @@ invariants = [
   "Figures are verified by looking at the rendered PNG, not by reading the plotting code. Deterministic QC first, then visual.",
   "No explanatory prose inside figure panels. Explanation belongs in the figure legend.",
   "If you are unsure where you are, run `python tools/wf.py status`. Never guess the current stage.",
+  "Data acquisition strictly mandates full-cohort census. Arbitrary truncation (nrows=, head(), slice, loop cut-offs) and unapproved sampling are strictly prohibited. APIs and datasets must be consumed to complete exhaustion with progress visibility.",
 ]
 
 # `wf advance` refuses to move on unless the agent has recorded a handoff note.
@@ -146,15 +147,24 @@ headings = ["Source", "Access route", "Licence and ethics", "Exact retrieval ste
 
 [[stage]]
 id = "S04_data"
-title = "Acquire data + codebook + provenance"
+title = "Acquire data + codebook + provenance + census"
 card = "stages/S04_data.md"
-outputs = ["02_data/codebook.md", "02_data/provenance.md", "03_analysis/results/dataset_summary.json"]
+outputs = [
+  "02_data/codebook.md",
+  "02_data/provenance.md",
+  "02_data/data_census.json",
+  "03_analysis/results/dataset_summary.json"
+]
 [[stage.gate]]
 check = "outputs_exist"
 [[stage.gate]]
 check = "file_count"
 glob = "02_data/raw/**"
 min = 1
+[[stage.gate]]
+check = "data_acquisition_integrity"
+[[stage.gate]]
+check = "data_census_match"
 [[stage.gate]]
 check = "json_keys"
 path = "03_analysis/results/dataset_summary.json"

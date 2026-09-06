@@ -92,7 +92,7 @@ def get(name: str):
 
 def load_all() -> None:
     """Import every check module so the registry is populated."""
-    from . import artifacts, fsx, numbers, polish, refs, statecheck, text  # noqa: F401
+    from . import artifacts, data_integrity, fsx, numbers, polish, refs, statecheck, text  # noqa: F401
 
 
 def known() -> list[str]:

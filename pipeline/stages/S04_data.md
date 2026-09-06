@@ -10,12 +10,24 @@ Get the real data in place with an auditable trail, and describe it before analy
    that writes to `02_data/derived/`. No manual spreadsheet edits.
 3. Write `project/02_data/provenance.md`: where each raw file came from, the URL or
    query, the retrieval timestamp, the release/version, the file hash, the licence, and
-   who is allowed to see it.
-4. Generate the codebook. For every variable: role, type, units, level meanings,
+   who is allowed to see it. Include an explicit `Exhaustion & Completeness Audit` section.
+4. Output the verifiable census manifest to `project/02_data/data_census.json`:
+```json
+{
+  "strategy": "FULL_CENSUS",
+  "actual_raw_rows": 0,
+  "exhaustion_verified": true,
+  "retrieval_method": "API_PAGINATION",
+  "source_hash": "sha256 of raw file(s)"
+}
+```
+   Set `strategy` to `FULL_CENSUS` (default) or `APPROVED_SAMPLING`.
+   If `FULL_CENSUS`, `exhaustion_verified` must be `true`.
+5. Generate the codebook. For every variable: role, type, units, level meanings,
    range or quantiles, and missingness. If a coded variable's level meanings are unknown,
    mark it `[NEEDS DICTIONARY]` - do not infer what `2` means.
    Write it to `project/02_data/codebook.md`.
-5. Dump the machine-readable summary from executed code to
+6. Dump the machine-readable summary from executed code to
    `project/03_analysis/results/dataset_summary.json`:
 ```json
 {
@@ -28,16 +40,20 @@ Get the real data in place with an auditable trail, and describe it before analy
   "built_at": ""
 }
 ```
-   Include the study period here even if it is just calendar years: every number that
-   later appears in the manuscript must exist in a results JSON, dates included.
-6. Delete scratch files from `project/temp/`.
+   `n_rows` must strictly match `actual_raw_rows` from `data_census.json`.
+7. Delete scratch files from `project/temp/`.
 
 ## Outputs
 - `02_data/codebook.md`
 - `02_data/provenance.md`
+- `02_data/data_census.json`
 - `03_analysis/results/dataset_summary.json`
 
 ## Hard rules
+- STRICT ZERO TRUNCATION: Never use `nrows=`, `.head(N)`, `[:N]`, `.sample()`, or early-break
+  loops to shortcut data acquisition. Public datasets and APIs must be ingested in full.
+- PROGRESS VISIBILITY: Batch downloads and API pagination must print progress (tqdm or
+  batch counts/percentages). Never execute silent long-running loops.
 - If the data contains identifiers, de-identify before any of it reaches a prompt, and
   record what was removed in `provenance.md`.
 - No plotting in this stage.
