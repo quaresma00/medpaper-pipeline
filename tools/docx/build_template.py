@@ -145,11 +145,19 @@ def modify_styles_xml(
                     color = ET.SubElement(rpr, qn("color"))
                 clean_color_to_black(color)
 
-    # Completely remove all outlineLvl and numPr from all styles
-    for ppr in root.findall(".//w:pPr", NS):
-        for tag in ("outlineLvl", "numPr"):
-            for node in ppr.findall(f"w:{tag}", NS):
+    # Remove outlineLvl from all styles, and remove numPr from heading/title styles
+    # NEVER remove numPr from List Paragraph or bullet styles, which damages the native Word style map
+    for style in root.findall(".//w:style", NS):
+        sid = style.attrib.get(qn("styleId"), "")
+        ppr = style.find("w:pPr", NS)
+        if ppr is not None:
+            # Clear outlineLvl from all styles to prevent fold arrows / black boxes
+            for node in ppr.findall("w:outlineLvl", NS):
                 ppr.remove(node)
+            # Only strip numPr from heading, title, normal, and body styles to prevent accidental numbered headings
+            if "Heading" in sid or sid in ("Title", "Subtitle", "Normal", "BodyText"):
+                for node in ppr.findall("w:numPr", NS):
+                    ppr.remove(node)
 
     return ET.tostring(root, encoding="utf-8")
 

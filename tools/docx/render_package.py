@@ -87,6 +87,60 @@ def calibrate_title_page_refcount(title_page_text: str, actual_ref_count: int) -
     return title_page_text
 
 
+def sanitize_latex_math_and_dollars(text: str) -> str:
+    """Sanitize stray, unclosed LaTeX math dollars ($) to prevent Pandoc from entering
+    math mode and swallowing whitespace between words (e.g. ()ateachscreening...).
+
+    1. Converts medical statistical symbols ($p$, $p < 0.05$, $n$, $N$) to standard markdown italics (*p*, *n*).
+    2. Strips pseudo-math wrappers where prose words were accidentally enclosed in dollars.
+    3. Safely escapes stray unclosed dollars.
+    """
+    if not text:
+        return text
+
+    # 1. Protect currency amounts like $100, $5.50 so they won't trigger math mode
+    text = re.sub(r'(?<!\\)\$(\d+(?:,\d+)*(?:\.\d+)?)', r'\\$\1', text)
+
+    paragraphs = text.split('\n\n')
+    cleaned_paras = []
+
+    prose_stopwords = {
+        'screening', 'each', 'patient', 'patients', 'stage', 'group', 'and', 'or', 'the',
+        'with', 'from', 'at', 'in', 'of', 'to', 'for', 'by', 'on', 'filtration', 'cohort',
+        'table', 'figure', 'versus', 'vs', 'after', 'before', 'follow', 'visit', 'study',
+        'sample', 'size', 'sizes', 'node', 'nodes', 'cascade', 'branching', 'proportion'
+    }
+
+    for para in paragraphs:
+        p = para
+
+        # Convert common medical italic stats: $p$, $p < 0.05$, $n$, $N$ to markdown italics *p*, *n*
+        p = re.sub(r'(?i)(?<!\\)\$([pnN])\s*([<>=]=?)\s*([0-9.]+)(?<!\\)\$', r'*\1* \2 \3', p)
+        p = re.sub(r'(?i)(?<!\\)\$([pnN])(?<!\\)\$', r'*\1*', p)
+        p = re.sub(r'(?i)(?<!\\)\$([a-zA-Z])(?<!\\)\$', r'*\1*', p)
+
+        # Find any remaining unescaped $...$ pairs
+        def fix_math_match(m):
+            inner = m.group(1)
+            words = inner.split()
+            # If inner contains more than 3 words or typical prose words, it's NOT a real formula
+            if len(words) > 3 or any(w.lower().strip("(),.:;") in prose_stopwords for w in words):
+                return inner  # strip the $ delimiters completely to preserve word spaces!
+            return m.group(0)
+
+        p = re.sub(r'(?<!\\)\$([^$\n]+)(?<!\\)\$', fix_math_match, p)
+
+        # Handle unclosed or odd number of $ in paragraph
+        unescaped_dollars = [m.start() for m in re.finditer(r'(?<!\\)\$', p)]
+        if len(unescaped_dollars) % 2 != 0:
+            # Escape all lone unescaped dollars so Pandoc will never swallow text into math mode
+            p = re.sub(r'(?<!\\)\$', r'\\$', p)
+
+        cleaned_paras.append(p)
+
+    return '\n\n'.join(cleaned_paras)
+
+
 def clean_markdown_soft_breaks(text: str) -> str:
     """Strip manual line break triggers (trailing backslashes, trailing whitespace, HTML br) from markdown prose."""
     if not text:
@@ -128,10 +182,11 @@ def clean_keywords(text: str) -> str:
 
 
 def clean_legend_block(legend_text: str) -> str:
-    """Clean figure legends: strip duplicate Abbreviations, format headings cleanly."""
+    """Clean figure legends: strip duplicate Abbreviations, format headings cleanly, sanitize math dollars."""
     if not legend_text.strip():
         return ""
 
+    legend_text = sanitize_latex_math_and_dollars(legend_text)
     blocks = re.split(r"(?m)(?=^(?:#+\s*)?Figure\s+[S\d]+)", legend_text)
     cleaned_blocks = []
 
@@ -263,7 +318,12 @@ def purify_docx_xml(root: ET.Element) -> bool:
 
 
 def post_process_docx(docx_path: Path) -> None:
-    """Purify generated docx file in-place: flatten hyperlinks, eliminate soft breaks, remove outlines."""
+    """Purify generated docx file in-place: flatten hyperlinks, eliminate soft breaks, remove outlines.
+
+    STRICTLY limits XML purification to the document body flow (word/document.xml and headers/footers).
+    NEVER touch word/styles.xml, word/settings.xml, or fontTable.xml to prevent damaging the native
+    Word style mapping table ('Style 1' / '样式1' error).
+    """
     if not docx_path.exists():
         return
 
@@ -273,7 +333,11 @@ def post_process_docx(docx_path: Path) -> None:
         with zipfile.ZipFile(temp_buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
             for item in zin.infolist():
                 content = zin.read(item.filename)
-                if item.filename.startswith("word/") and item.filename.endswith(".xml"):
+                # Strictly isolate body text streams; leave styles.xml and settings intact
+                is_body_stream = item.filename in ("word/document.xml",) or bool(
+                    re.match(r"^word/(header|footer|footnotes|endnotes)\d*\.xml$", item.filename)
+                )
+                if is_body_stream:
                     try:
                         root = ET.fromstring(content)
                         if purify_docx_xml(root):
@@ -296,6 +360,7 @@ def assemble_manuscript_md(project_dir: Path) -> Path:
         if not p.exists():
             return ""
         txt = p.read_text(encoding="utf-8", errors="ignore").strip()
+        txt = sanitize_latex_math_and_dollars(txt)
         return clean_markdown_soft_breaks(txt)
 
     # Count real citations
@@ -337,7 +402,8 @@ def assemble_manuscript_md(project_dir: Path) -> Path:
     if legends:
         combined += "\n\n" + legends + "\n"
 
-    # Final pass of soft-break cleaning
+    # Final pass of soft-break and math cleaning
+    combined = sanitize_latex_math_and_dollars(combined)
     combined = clean_markdown_soft_breaks(combined)
 
     out_path = project_dir / "07_manuscript" / "manuscript_assembled.md"
@@ -398,7 +464,8 @@ def render_all(project_dir: Path, csl_path: Path | None = None) -> int:
     if not cover_letter_md.exists():
         cover_letter_md = project_dir / "08_submission" / "cover_letter.md"
     if cover_letter_md.exists():
-        cl_text = clean_markdown_soft_breaks(cover_letter_md.read_text(encoding="utf-8", errors="ignore"))
+        cl_raw = cover_letter_md.read_text(encoding="utf-8", errors="ignore")
+        cl_text = clean_markdown_soft_breaks(sanitize_latex_math_and_dollars(cl_raw))
         temp_cl_md = cache_dir / "clean_cover_letter.md"
         temp_cl_md.write_text(cl_text, encoding="utf-8")
 
@@ -415,7 +482,8 @@ def render_all(project_dir: Path, csl_path: Path | None = None) -> int:
     # 5. Render supplementary_materials.docx
     supp_methods_md = project_dir / "07_manuscript" / "supplementary_methods.md"
     if supp_methods_md.exists():
-        supp_text = clean_markdown_soft_breaks(supp_methods_md.read_text(encoding="utf-8", errors="ignore"))
+        supp_raw = supp_methods_md.read_text(encoding="utf-8", errors="ignore")
+        supp_text = clean_markdown_soft_breaks(sanitize_latex_math_and_dollars(supp_raw))
         temp_supp_md = cache_dir / "clean_supp.md"
         temp_supp_md.write_text(supp_text, encoding="utf-8")
 
