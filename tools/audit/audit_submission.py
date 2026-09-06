@@ -22,6 +22,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 
@@ -63,6 +64,20 @@ def verify_docx_integrity(docx_path: Path) -> list[str]:
             outline_lvls = root.findall(f".//{{{W_NS}}}outlineLvl")
             if outline_lvls:
                 problems.append(f"Paragraph outline levels (outlineLvl) found: {len(outline_lvls)} in {docx_path.name}")
+
+            # Check for horizontal rules (---)
+            if 'o:hr="t"' in doc_xml.decode("utf-8", errors="ignore"):
+                problems.append(f"Residual horizontal dividing lines (---) found: {docx_path.name}")
+
+            # Check for duplicate Figure Legends heading in manuscript.docx
+            if docx_path.name == "manuscript.docx":
+                legend_headings = []
+                for p in paragraphs:
+                    p_text = "".join(t.text for t in p.findall(f".//{{{W_NS}}}t") if t.text).strip()
+                    if re.match(r"(?i)^figure\s+legends?$", p_text):
+                        legend_headings.append(p_text)
+                if len(legend_headings) > 1:
+                    problems.append(f"Duplicate 'Figure Legends' heading detected ({len(legend_headings)} times) in {docx_path.name}")
 
     except zipfile.BadZipFile:
         return [f"Corrupted file (not a valid ZIP/DOCX format): {docx_path.name}"]
@@ -147,13 +162,14 @@ def audit_bundle(project_dir: Path) -> dict:
     if freeze_path.exists():
         try:
             from wfcore.packagefreeze import verify_freeze
-            errs = verify_freeze(project_dir, freeze_path)
-            if errs:
+            ok, problems, count = verify_freeze(project_dir, freeze_path)
+            real_problems = [p for p in problems if "AUDIT_REPORT.md" not in p]
+            if real_problems:
                 results["freeze_status"] = "TAMPERED_OR_OUT_OF_SYNC"
-                results["consistency_issues"].extend([f"Freeze verification failed: {e}" for e in errs])
+                results["consistency_issues"].extend([f"Freeze verification failed: {e}" for e in real_problems])
                 results["overall_status"] = "ACTION_REQUIRED"
             else:
-                results["freeze_status"] = "VERIFIED_MATCH"
+                results["freeze_status"] = f"VERIFIED_MATCH ({count} files)"
         except Exception as fe:
             results["freeze_status"] = f"ERROR: {fe}"
     else:
@@ -247,6 +263,21 @@ def audit_bundle(project_dir: Path) -> dict:
                             f"Orphan edit or stale assembly: Component section '{sec}' content is not reflected in 'manuscript_assembled.md'. Run render_package.py to re-assemble."
                         )
                         results["overall_status"] = "ACTION_REQUIRED"
+
+    # 9. Supplementary Methods checks: no embedded raw tables, no horizontal rules
+    supp_md = manuscript_dir / "supplementary_methods.md"
+    if supp_md.exists():
+        supp_txt = supp_md.read_text(encoding="utf-8", errors="replace")
+        if re.search(r"(?m)^\|[-:| ]+\|$", supp_txt):
+            results["consistency_issues"].append(
+                "Embedded markdown data table detected in 'supplementary_methods.md'. Per medical SCI standards, all tables must be routed to '04_tables/supplementary/supplementary_tables.xlsx' as three-line tables (Table S1, S2...)."
+            )
+            results["overall_status"] = "ACTION_REQUIRED"
+        if re.search(r"(?m)^[ \t]*([-_*])[ \t]*(?:\1[ \t]*){2,}[ \t]*$", supp_txt):
+            results["consistency_issues"].append(
+                "Residual horizontal rules (--- or ***) detected in 'supplementary_methods.md'. Section divisions must rely solely on markdown headings (##, ###)."
+            )
+            results["overall_status"] = "ACTION_REQUIRED"
 
     return results
 

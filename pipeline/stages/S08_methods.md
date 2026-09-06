@@ -57,6 +57,10 @@ the main text (e.g. "details are provided in Supplementary Methods"):
 The supplementary file is optional. If the study is straightforward and the main text
 is not bloated, there is no need to create one.
 
+### Formatting & Cleanliness Rules for supplementary_methods.md:
+- **No Embedded Data Tables (表格一律归入补充表格)**: `supplementary_methods.md` is strictly for methodological narrative. **Never embed raw markdown tables (code lists, parameter grids, variable dictionaries) directly in this file.** All structured tables must be rendered as publication-grade three-line tables in `04_tables/supplementary/supplementary_tables.xlsx` (Table S1, Table S2...) during stage S10. Reference them in prose (e.g., *"Full diagnostic ICD-10 code definitions are detailed in Supplementary Table S1"*).
+- **No Horizontal Rules (严禁水平分割线)**: Never use `---` or `***` markdown horizontal rules. Rely purely on markdown headings (`##`, `###`) for section separation. Dividing lines produce unsightly border artifacts in compiled Word documents.
+
 ## Procedure
 1. Re-read the protocol. The Methods describes what was actually done, in the order the
    reporting guideline expects. Follow the guideline's item list; if the guideline wants a
@@ -65,7 +69,7 @@ is not bloated, there is no need to create one.
    Adapt the subsection headings to the study type and target journal — the skeleton is
    a reference, not a rigid template.
 3. If technical detail is extensive, write `project/07_manuscript/supplementary_methods.md`
-   and cross-reference it from the main text.
+   and cross-reference it from the main text. Ensure all data tables are routed to `04_tables/supplementary/`.
 4. Cite methodological choices with pandoc markers `[@key]` — the cutoff you adopted, the
    scoring system, the model, the guideline itself. Keys must come from records already
    retrieved this session.
@@ -85,6 +89,8 @@ is not bloated, there is no need to create one.
   "Subgroup Analysis", "Machine Learning Pipeline") as separate main-text headings
   after it. Mention them briefly within Statistical Analysis; elaborate in the
   supplementary file.
+- **No embedded tables in supplementary_methods.md**: tabular data must be assigned Table S1, S2... and routed to `04_tables/supplementary/supplementary_tables.xlsx`.
+- **Zero horizontal rules (`---`)**: do not use horizontal dividers in markdown files.
 - Every number traceable to results JSON (gate: `numbers_have_provenance`).
 - No placeholders. `TODO`, `TBD`, `xx.x` and friends fail the gate.
 - Past tense, declarative. No "we aimed to comprehensively investigate".

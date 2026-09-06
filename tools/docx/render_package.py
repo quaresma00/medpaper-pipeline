@@ -142,12 +142,14 @@ def sanitize_latex_math_and_dollars(text: str) -> str:
 
 
 def clean_markdown_soft_breaks(text: str) -> str:
-    """Strip manual line break triggers (trailing backslashes, trailing whitespace, HTML br) from markdown prose."""
+    """Strip manual line break triggers and residual horizontal rules from markdown prose."""
     if not text:
         return text
     text = re.sub(r'(?i)<br\s*/?>', '\n', text)
     text = re.sub(r'\\+\s*$', '', text, flags=re.MULTILINE)
     text = re.sub(r'[ \t]+$', '', text, flags=re.MULTILINE)
+    # Strip markdown horizontal dividing lines (---, ***, ___) to eliminate residual Word dividing lines
+    text = re.sub(r'(?m)^[ \t]*([-_*])[ \t]*(?:\1[ \t]*){2,}[ \t]*$', '', text)
     return text
 
 
@@ -182,12 +184,22 @@ def clean_keywords(text: str) -> str:
 
 
 def clean_legend_block(legend_text: str) -> str:
-    """Clean figure legends: strip duplicate Abbreviations, format headings cleanly, sanitize math dollars."""
+    """Clean figure legends:
+    1. Strip duplicate global # Figure Legends heading so it never appears twice.
+    2. Format individual headings cleanly: '**Figure 1. Title.** Body'.
+    3. Strip duplicate Abbreviations blocks (centralized in Statements).
+    4. Sanitize math dollars ($) to prevent swallowing word spaces.
+    """
     if not legend_text.strip():
         return ""
 
     legend_text = sanitize_latex_math_and_dollars(legend_text)
-    blocks = re.split(r"(?m)(?=^(?:#+\s*)?Figure\s+[S\d]+)", legend_text)
+
+    # 1. Strip any leading global "# Figure Legends" or "## Figure Legends" heading
+    text = re.sub(r'(?im)^#+\s*Figure\s+Legends?\s*$', '', legend_text).strip()
+
+    # 2. Split into individual figure blocks
+    blocks = re.split(r"(?m)(?=^(?:#+\s*)?Figure\s+[S\d]+)", text)
     cleaned_blocks = []
 
     for block in blocks:
@@ -195,15 +207,27 @@ def clean_legend_block(legend_text: str) -> str:
         if not b:
             continue
 
+        # Discard any block not starting with Figure
+        if not re.match(r"^(?:#+\s*)?Figure\s+[S\d]+", b, re.IGNORECASE):
+            continue
+
         # Strip out Abbreviations block from individual legend (centralized in Declarations/Statements)
         b = re.sub(r"(?is)\bAbbreviations?:?\s*.*$", "", b).strip()
 
-        # Format title e.g. "Figure 1. Flow diagram..." -> "**Figure 1.** Flow diagram..."
-        m = re.match(r"^(?:#+\s*)?(Figure\s+[S\d]+[\.\:]?)\s*(.*)", b, re.IGNORECASE | re.DOTALL)
+        # Format title e.g. "## Figure 1.\n**Title.** Body" -> "**Figure 1. Title.** Body"
+        m = re.match(r"^(?:#+\s*)?(Figure\s+[S\d]+)[\.\:]?\s*(.*)", b, re.IGNORECASE | re.DOTALL)
         if m:
-            prefix = m.group(1).rstrip(":").rstrip(".")
-            body = m.group(2).strip()
-            b = f"**{prefix}.** {body}"
+            prefix = m.group(1).strip()
+            rest = m.group(2).strip()
+
+            # If rest starts with bold title e.g. "**Cohort selection.**\nFlow diagram..."
+            bold_m = re.match(r"^\*\*(.+?)\*\*[\.\:]?\s*(.*)", rest, re.DOTALL)
+            if bold_m:
+                sub_title = bold_m.group(1).rstrip(".")
+                body_text = bold_m.group(2).strip()
+                b = f"**{prefix}. {sub_title}.** {body_text}" if body_text else f"**{prefix}. {sub_title}.**"
+            else:
+                b = f"**{prefix}.** {rest}"
 
         cleaned_blocks.append(b)
 
@@ -312,6 +336,16 @@ def purify_docx_xml(root: ET.Element) -> bool:
                 parent.remove(p)
                 for offset, np in enumerate(new_paragraphs):
                     parent.insert(idx + offset, np)
+                modified = True
+
+    # 4. Remove residual horizontal dividing lines (e.g. from markdown --- or ***)
+    for parent in list(root.iter()):
+        p_list = [c for c in list(parent) if c.tag == f"{{{W_NS}}}p"]
+        for p in p_list:
+            p_str = ET.tostring(p, encoding="utf-8").decode("utf-8")
+            # If paragraph contains VML hr rect or border divider with no genuine text
+            if 'o:hr="t"' in p_str or ('w:val="single"' in p_str and not p.findall(f".//{{{W_NS}}}t")):
+                parent.remove(p)
                 modified = True
 
     return modified
